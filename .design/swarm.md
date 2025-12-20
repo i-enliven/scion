@@ -30,9 +30,10 @@ Agents are provisioned using **Templates**, which define their persona, capabili
 - **Storage**:
   - Project templates: `.gswarm/templates/` (checked into the repo).
   - Global templates: `~/.gswarm/templates/`.
-- **Structure**: A template directory mirrors the agent's home directory structure (`/home/gemini`).
+- **Structure**: A template directory mirrors the agent's home directory structure (`/home/gemini`), with an additional `gswarm.json` for manager-level configuration.
   ```text
   template-name/
+  ├── gswarm.json             # gswarm-specific config (e.g., container image)
   ├── .gemini/
   │   ├── settings.json       # Allowed tools, MCP servers, active extensions
   │   ├── system_prompt.md    # Agent persona and behavioral instructions
@@ -41,7 +42,7 @@ Agents are provisioned using **Templates**, which define their persona, capabili
   │   └── gcloud/             # Optional: Pre-seeded credentials
   └── .bashrc                 # Optional: Shell aliases
   ```
-- **Inheritance**: A `default` template acts as the base. New agents inherit from `default` unless a specific type is requested.
+- **Inheritance**: A `default` template acts as the base. New agents inherit from `default` unless a specific type is requested. Files in the custom template overwrite those in `default` (e.g., `gswarm.json` in a custom template overrides the image).
 
 ### 3. Swarm Manager CLI (`gswarm`)
 

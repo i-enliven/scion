@@ -17,8 +17,12 @@ const DefaultSystemPrompt = `# Gemini Swarm Agent
 You are a specialized agent working within a Gemini Swarm.
 `
 
+const DefaultGswarmJSON = `{
+  "image": "gemini-cli-sandbox"
+}
+`
+
 const DefaultGeminiMD = `## Swarm Context
-This agent was initialized as part of a gswarm project.
 `
 
 const DefaultBashrc = `# gswarm agent bashrc
@@ -56,6 +60,7 @@ func InitProject() error {
 		path    string
 		content string
 	}{
+		{filepath.Join(defaultTemplateDir, "gswarm.json"), DefaultGswarmJSON},
 		{filepath.Join(defaultTemplateDir, ".gemini", "settings.json"), DefaultSettingsJSON},
 		{filepath.Join(defaultTemplateDir, ".gemini", "system_prompt.md"), DefaultSystemPrompt},
 		{filepath.Join(defaultTemplateDir, ".gemini", "gemini.md"), DefaultGeminiMD},
@@ -111,6 +116,7 @@ func InitGlobal() error {
 		path    string
 		content string
 	}{
+		{filepath.Join(defaultTemplateDir, "gswarm.json"), DefaultGswarmJSON},
 		{filepath.Join(defaultTemplateDir, ".gemini", "settings.json"), DefaultSettingsJSON},
 		{filepath.Join(defaultTemplateDir, ".gemini", "system_prompt.md"), DefaultSystemPrompt},
 		{filepath.Join(defaultTemplateDir, ".gemini", "gemini.md"), DefaultGeminiMD},

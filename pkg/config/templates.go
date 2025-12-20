@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,27 @@ import (
 type Template struct {
 	Name string
 	Path string
+}
+
+type GswarmConfig struct {
+	Image string `json:"image"`
+}
+
+func (t *Template) LoadConfig() (*GswarmConfig, error) {
+	path := filepath.Join(t.Path, "gswarm.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &GswarmConfig{}, nil
+		}
+		return nil, err
+	}
+
+	var cfg GswarmConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 func FindTemplate(name string) (*Template, error) {
