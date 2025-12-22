@@ -84,10 +84,11 @@ func (r *DockerRuntime) Run(ctx context.Context, config RunConfig) (string, erro
 
 	args = append(args, config.Image)
 
+	geminiArgs := []string{"gemini", "--yolo", "--prompt-interactive", config.Task}
 	if config.UseTmux {
-		args = append(args, "tmux", "new-session", "-s", "gswarm", "gemini")
+		args = append(args, "tmux", "new-session", "-s", "gswarm", strings.Join(geminiArgs, " "))
 	} else {
-		args = append(args, "gemini")
+		args = append(args, geminiArgs...)
 	}
 
 	cmd := exec.CommandContext(ctx, r.Command, args...)

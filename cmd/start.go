@@ -24,18 +24,17 @@ var (
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
-	Use:   "start <task>",
+	Use:   "start <agent-name> <task...>",
 	Short: "Launch a new gswarm agent",
 	Long: `Provision and launch a new isolated Gemini agent to perform a specific task.
-The agent will be created from a template and run in a detached container.`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		task := args[0]
+The agent will be created from a template and run in a detached container.
 
-		if agentName == "" {
-			// Generate a unique name if not provided
-			agentName = fmt.Sprintf("agent-%d", os.Getpid())
-		}
+The agent-name is required as the first argument. All subsequent arguments 
+form the task prompt, which is passed to the gemini command.`,
+	Args: cobra.MinimumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		agentName = args[0]
+		task := strings.Join(args[1:], " ")
 
 		fmt.Printf("Starting agent '%s' for task: %s\n", agentName, task)
 
@@ -147,8 +146,8 @@ The agent will be created from a template and run in a detached container.`,
 			Auth:      auth,
 			UseTmux:   useTmux,
 			Model:     resolvedModel,
+			Task:      task,
 			Env: []string{
-				fmt.Sprintf("GEMINI_INITIAL_PROMPT=%s", task),
 				fmt.Sprintf("GEMINI_AGENT_NAME=%s", agentName),
 			},
 			Labels: map[string]string{
@@ -175,7 +174,6 @@ The agent will be created from a template and run in a detached container.`,
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-	startCmd.Flags().StringVarP(&agentName, "name", "n", "", "Name of the agent")
 	startCmd.Flags().StringVarP(&templateName, "type", "t", "default", "Template to use")
 	startCmd.Flags().StringVarP(&agentImage, "image", "i", "", "Container image to use (overrides template)")
 	startCmd.Flags().BoolVar(&noAuth, "no-auth", false, "Disable authentication propagation")

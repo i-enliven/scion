@@ -23,6 +23,7 @@ type RunConfig struct {
 	Auth      config.AuthConfig
 	UseTmux   bool
 	Model     string
+	Task      string
 }
 
 type Runtime interface {
