@@ -18,7 +18,7 @@ If the agent was started with tmux support, this will attach to the tmux session
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		agentName := args[0]
-		rt := runtime.GetRuntime(grovePath)
+		rt := runtime.GetRuntime(grovePath, agentRuntime)
 
 		// Try to resolve grove info for better error messages
 		projectDir, _ := config.GetResolvedProjectDir(grovePath)
@@ -39,5 +39,6 @@ If the agent was started with tmux support, this will attach to the tmux session
 
 func init() {
 	rootCmd.AddCommand(attachCmd)
+	attachCmd.Flags().StringVarP(&agentRuntime, "runtime", "r", "", "Runtime to use (local, remote, docker, kubernetes)")
 }
 

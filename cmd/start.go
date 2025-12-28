@@ -22,10 +22,19 @@ look for a prompt.md file in its root directory.`,
 }
 
 func init() {
+
 	rootCmd.AddCommand(startCmd)
+
 	startCmd.Flags().StringVarP(&templateName, "type", "t", "", "Template to use")
+
 	startCmd.Flags().StringVarP(&agentImage, "image", "i", "", "Container image to use (overrides template)")
+
 	startCmd.Flags().BoolVar(&noAuth, "no-auth", false, "Disable authentication propagation")
+
 	startCmd.Flags().BoolVarP(&attach, "attach", "a", false, "Attach to the agent TTY after starting")
+
 	startCmd.Flags().StringVarP(&model, "model", "m", "", "Model to use (overrides template)")
+
+	startCmd.Flags().StringVarP(&agentRuntime, "runtime", "r", "", "Runtime to use (local, remote, docker, kubernetes)")
+
 }

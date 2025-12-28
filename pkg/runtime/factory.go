@@ -14,14 +14,17 @@ import (
 
 // GetRuntime returns the appropriate Runtime implementation based on environment,
 // agent configuration (if available via GetAgentSettings), and grove/global settings.
-func GetRuntime(grovePath string) api.Runtime {
+func GetRuntime(grovePath string, runtimeOverride string) api.Runtime {
 	var runtimeType string
 
 	// We resolve the project dir from grovePath to load settings correctly
 	// If grovePath is empty, GetResolvedProjectDir handles it by looking for .scion or falling back to global
 	projectDir, _ := config.GetResolvedProjectDir(grovePath)
 	s, _ := config.LoadSettings(projectDir)
-	if s != nil && s.DefaultRuntime != "" {
+
+	if runtimeOverride != "" {
+		runtimeType = runtimeOverride
+	} else if s != nil && s.DefaultRuntime != "" {
 		runtimeType = s.DefaultRuntime
 	}
 

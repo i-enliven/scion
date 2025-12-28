@@ -228,6 +228,7 @@ var (
 	noAuth       bool
 	attach       bool
 	model        string
+	agentRuntime string
 )
 
 func RunAgent(cmd *cobra.Command, args []string, resume bool) error {
@@ -235,7 +236,7 @@ func RunAgent(cmd *cobra.Command, args []string, resume bool) error {
 	task := strings.Join(args[1:], " ")
 
 	// 0. Check if container already exists
-	rt := runtime.GetRuntime(grovePath)
+	rt := runtime.GetRuntime(grovePath, agentRuntime)
 	agents, err := rt.List(context.Background(), nil)
 	if err == nil {
 		for _, a := range agents {
@@ -334,7 +335,11 @@ func RunAgent(cmd *cobra.Command, args []string, resume bool) error {
 	}
 
 	// 4. Launch container
-	rt = runtime.GetRuntime(grovePath)
+	effectiveRuntime := agentRuntime
+	if effectiveRuntime == "" && finalScionCfg != nil {
+		effectiveRuntime = finalScionCfg.Runtime
+	}
+	rt = runtime.GetRuntime(grovePath, effectiveRuntime)
 
 	detached := true
 	useTmux := false

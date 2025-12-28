@@ -17,7 +17,7 @@ var deleteCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		agentName := args[0]
-		rt := runtime.GetRuntime(grovePath)
+		rt := runtime.GetRuntime(grovePath, agentRuntime)
 
 		fmt.Printf("Deleting agent '%s'...\n", agentName)
 		
@@ -39,5 +39,6 @@ var deleteCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(deleteCmd)
+	deleteCmd.Flags().StringVarP(&agentRuntime, "runtime", "r", "", "Runtime to use (local, remote, docker, kubernetes)")
 }
 

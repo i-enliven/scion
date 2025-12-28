@@ -17,7 +17,7 @@ var logsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		agentName := args[0]
-		rt := runtime.GetRuntime(grovePath)
+		rt := runtime.GetRuntime(grovePath, agentRuntime)
 
 		// 1. Try to find the agent to get its grove path
 		agents, err := rt.List(context.Background(), map[string]string{
@@ -49,4 +49,5 @@ var logsCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(logsCmd)
+	logsCmd.Flags().StringVarP(&agentRuntime, "runtime", "r", "", "Runtime to use (local, remote, docker, kubernetes)")
 }

@@ -20,7 +20,7 @@ func TestGetRuntime(t *testing.T) {
 		t.Setenv("HOME", tmpHome)
 		t.Setenv("SCION_GROVE", "") // Ensure no grove path influence
 
-		r := GetRuntime("")
+		r := GetRuntime("", "")
 		if _, ok := r.(*DockerRuntime); !ok {
 			t.Errorf("expected *DockerRuntime by default (from LoadSettings), got %T", r)
 		}
@@ -41,7 +41,7 @@ func TestGetRuntime(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		r := GetRuntime("")
+		r := GetRuntime("", "")
 		if _, ok := r.(*AppleContainerRuntime); !ok {
 			t.Errorf("expected *AppleContainerRuntime from settings, got %T", r)
 		}
@@ -62,7 +62,7 @@ func TestGetRuntime(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		r := GetRuntime("")
+		r := GetRuntime("", "")
 		// Remote resolves to kubernetes
 		if _, ok := r.(*kubernetes.KubernetesRuntime); !ok {
 			t.Errorf("expected *kubernetes.KubernetesRuntime, got %T", r)
@@ -90,9 +90,27 @@ func TestGetRuntime(t *testing.T) {
 		// Grove says docker
 		os.WriteFile(filepath.Join(groveScionDir, "settings.json"), []byte(`{"default_runtime": "docker"}`), 0644)
 
-		r := GetRuntime(groveScionDir)
+		r := GetRuntime(groveScionDir, "")
 		if _, ok := r.(*DockerRuntime); !ok {
 			t.Errorf("expected *DockerRuntime from grove override, got %T", r)
+		}
+	})
+
+	t.Run("Override_Param", func(t *testing.T) {
+		tmpHome := t.TempDir()
+		t.Setenv("HOME", tmpHome)
+
+		// Settings say docker
+		globalDir := filepath.Join(tmpHome, ".scion")
+		if err := os.MkdirAll(globalDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		os.WriteFile(filepath.Join(globalDir, "settings.json"), []byte(`{"default_runtime": "docker"}`), 0644)
+
+		// Parameter override to container
+		r := GetRuntime("", "container")
+		if _, ok := r.(*AppleContainerRuntime); !ok {
+			t.Errorf("expected *AppleContainerRuntime from parameter override, got %T", r)
 		}
 	})
 }

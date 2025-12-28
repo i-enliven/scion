@@ -24,7 +24,7 @@ var listCmd = &cobra.Command{
 	Aliases: []string{"ls"},
 	Short:   "List running scion agents",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		rt := runtime.GetRuntime(grovePath)
+		rt := runtime.GetRuntime(grovePath, agentRuntime)
 		filters := map[string]string{
 			"scion.agent": "true",
 		}
@@ -144,5 +144,6 @@ var listCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(listCmd)
 	listCmd.Flags().BoolVarP(&listAll, "all", "a", false, "List all agents across all groves")
+	listCmd.Flags().StringVarP(&agentRuntime, "runtime", "r", "", "Runtime to use (local, remote, docker, kubernetes)")
 }
 

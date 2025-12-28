@@ -19,7 +19,7 @@ The agent will be created from a template.`,
 		agentName := args[0]
 
 		// Check if container already exists
-		rt := runtime.GetRuntime(grovePath)
+		rt := runtime.GetRuntime(grovePath, agentRuntime)
 		agents, err := rt.List(context.Background(), nil)
 		if err == nil {
 			for _, a := range agents {
@@ -44,5 +44,6 @@ func init() {
 	rootCmd.AddCommand(createCmd)
 	createCmd.Flags().StringVarP(&templateName, "type", "t", "", "Template to use")
 	createCmd.Flags().StringVarP(&agentImage, "image", "i", "", "Container image to use (overrides template)")
+	createCmd.Flags().StringVarP(&agentRuntime, "runtime", "r", "", "Runtime to use (local, remote, docker, kubernetes)")
 }
 

@@ -17,7 +17,7 @@ var stopCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		agentName := args[0]
-		rt := runtime.GetRuntime(grovePath)
+		rt := runtime.GetRuntime(grovePath, agentRuntime)
 		
 		fmt.Printf("Stopping agent '%s'...\n", agentName)
 		if err := rt.Stop(context.Background(), agentName); err != nil {
@@ -44,6 +44,7 @@ var stopCmd = &cobra.Command{
 
 func init() {
 	stopCmd.Flags().BoolVar(&stopRm, "rm", false, "Remove the agent after stopping")
+	stopCmd.Flags().StringVarP(&agentRuntime, "runtime", "r", "", "Runtime to use (local, remote, docker, kubernetes)")
 	rootCmd.AddCommand(stopCmd)
 }
 
