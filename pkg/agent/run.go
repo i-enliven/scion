@@ -54,7 +54,9 @@ func (m *AgentManager) Start(ctx context.Context, opts api.StartOptions) (*api.A
 	}
 
 	task := opts.Task
-	if task == "" && promptFileContent == "" {
+	// If we are explicitly attaching, we allow starting without a task
+	isAttaching := opts.Detached != nil && !*opts.Detached
+	if task == "" && promptFileContent == "" && !isAttaching {
 		return nil, fmt.Errorf("no task provided: prompt.md is empty and no task was given in options")
 	}
 
