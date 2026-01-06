@@ -40,7 +40,7 @@
 ## Project use of the scion tool itself
 Do not commit changes in the project's own `.scion` folder to git as part of committing progress on code and docs. These are managed and committed manually when template defaults are intentionally updated.
 
-When working on this project, you can use `scion` to manage sub-agents for specific tasks like "refactor pkg/runtime" or "audit pkg/auth".
+Likewise, do not mess with any active agents while testing the tool, such as creating or deleting test agents, or other running agents inside this project.
 
 ## Git Workflow Protocol: Sandbox & Worktree Environment
 
@@ -80,6 +80,7 @@ If a rebase or merge results in conflicts:
 1.  Work on the given task until it is complete
 1.  Add or modify tests to ensure funciton is working as intended
 1.  Run all tests to ensure nothing was broken
+1.  If you are running the build to check for errors, be sure to Use `-buildvcs=false` as an arg to `go build` to disable VCS stamping with the 
 1.  Commit your work to git as you go to capture changes as appropriate
 1.  When you are finished, rebase your branch on main, running tests again if you had to resolve conflicts
 1.  Notify the user you have completed the task
