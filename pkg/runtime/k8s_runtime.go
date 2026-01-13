@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -70,6 +71,13 @@ func (r *KubernetesRuntime) Run(ctx context.Context, config RunConfig) (string, 
 			config.Annotations = make(map[string]string)
 		}
 		config.Annotations["scion.workspace"] = config.Workspace
+	}
+
+	if config.UseTmux {
+		if config.Labels == nil {
+			config.Labels = make(map[string]string)
+		}
+		config.Labels["scion.tmux"] = "true"
 	}
 
 	pod := r.buildPod(namespace, config)
@@ -147,11 +155,28 @@ func (r *KubernetesRuntime) Run(ctx context.Context, config RunConfig) (string, 
 func (r *KubernetesRuntime) buildPod(namespace string, config RunConfig) *corev1.Pod {
 	// Command Resolution
 	var cmd []string
+	var harnessArgs []string
 	if config.Harness != nil {
-		cmd = config.Harness.GetCommand(config.Task, config.Resume, config.CommandArgs)
+		harnessArgs = config.Harness.GetCommand(config.Task, config.Resume, config.CommandArgs)
 	} else {
 		// Fallback if no harness (though RunConfig implies there should be one or defaults)
-		cmd = []string{"/bin/sh", "-c", "sleep infinity"}
+		harnessArgs = []string{"/bin/sh", "-c", "sleep infinity"}
+	}
+
+	if config.UseTmux {
+		var quotedArgs []string
+		for _, a := range harnessArgs {
+			// Use %q to quote arguments that might have spaces or special characters
+			if strings.ContainsAny(a, " \t\n\"'$") {
+				quotedArgs = append(quotedArgs, fmt.Sprintf("%q", a))
+			} else {
+				quotedArgs = append(quotedArgs, a)
+			}
+		}
+		cmdLine := strings.Join(quotedArgs, " ")
+		cmd = []string{"tmux", "new-session", "-s", "scion", cmdLine}
+	} else {
+		cmd = harnessArgs
 	}
 
 	// Env Resolution
@@ -266,6 +291,9 @@ func (r *KubernetesRuntime) waitForPodReady(ctx context.Context, namespace, podN
 				}
 			}
 			if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+				if containerStatus != nil && containerStatus.State.Terminated != nil {
+					return fmt.Errorf("pod failed to start: %s - %s", containerStatus.State.Terminated.Reason, containerStatus.State.Terminated.Message)
+				}
 				return fmt.Errorf("pod terminated with status: %s", pod.Status.Phase)
 			}
 		}
@@ -553,24 +581,43 @@ func (r *KubernetesRuntime) Attach(ctx context.Context, id string) error {
 
 	fmt.Printf("Attaching to pod '%s' (use Ctrl-P, Ctrl-Q to detach)...\n", podName)
 
-	req := r.Client.Clientset.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(podName).
-		Namespace(namespace).
-		SubResource("attach")
+	var req *rest.Request
+	var realStdin io.Reader
+	useTmux := agent.Labels["scion.tmux"] == "true"
 
-	option := &corev1.PodAttachOptions{
-		Container: "agent",
-		Stdin:     true,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       true,
+	if useTmux {
+		req = r.Client.Clientset.CoreV1().RESTClient().Post().
+			Resource("pods").
+			Name(podName).
+			Namespace(namespace).
+			SubResource("exec")
+
+		option := &corev1.PodExecOptions{
+			Container: "agent",
+			Command:   []string{"tmux", "attach", "-t", "scion"},
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       true,
+		}
+		req.VersionedParams(option, scheme.ParameterCodec)
+		realStdin = os.Stdin
+	} else {
+		req = r.Client.Clientset.CoreV1().RESTClient().Post().
+			Resource("pods").
+			Name(podName).
+			Namespace(namespace).
+			SubResource("attach")
+
+		option := &corev1.PodAttachOptions{
+			Container: "agent",
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       true,
+		}
+		req.VersionedParams(option, scheme.ParameterCodec)
 	}
-
-	req.VersionedParams(
-		option,
-		scheme.ParameterCodec,
-	)
 
 	executor, err := remotecommand.NewSPDYExecutor(r.Client.Config, "POST", req.URL())
 	if err != nil {
@@ -618,10 +665,12 @@ func (r *KubernetesRuntime) Attach(ctx context.Context, id string) error {
 	}()
 	defer signal.Stop(sigChan)
 
-	// Wrap stdin with a reader that looks for the detach sequence
-	stdin := &detachReader{
-		reader: os.Stdin,
-		cancel: cancel,
+	// Wrap stdin with a reader that looks for the detach sequence if NOT using tmux
+	if !useTmux {
+		realStdin = &detachReader{
+			reader: os.Stdin,
+			cancel: cancel,
+		}
 	}
 
 	// Trigger a "resize dance" to force TUI redraw. Some TUIs only redraw
@@ -639,7 +688,7 @@ func (r *KubernetesRuntime) Attach(ctx context.Context, id string) error {
 	}()
 
 	err = executor.StreamWithContext(attachCtx, remotecommand.StreamOptions{
-		Stdin:             stdin,
+		Stdin:             realStdin,
 		Stdout:            os.Stdout,
 		Stderr:            os.Stderr,
 		Tty:               true,
