@@ -28,6 +28,7 @@
 	    "enableMessageBusIntegration": true
 	},
   "hooks": {
+    "enabled":true,
     "SessionStart": [{"matcher": "*", "hooks": [{"name": "scion-status", "type": "command", "command": "python3 $HOME/scion_tool.py"}]}],
     "SessionEnd": [{"matcher": "*", "hooks": [{"name": "scion-status", "type": "command", "command": "python3 $HOME/scion_tool.py"}]}],
     "BeforeAgent": [{"matcher": "*", "hooks": [{"name": "scion-status", "type": "command", "command": "python3 $HOME/scion_tool.py"}]}],
