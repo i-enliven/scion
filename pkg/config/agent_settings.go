@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"github.com/ptone/scion-agent/pkg/util"
 )
 
 type AgentSettings struct {
@@ -19,13 +21,8 @@ type AgentSettings struct {
 }
 
 func LoadAgentSettings(path string) (*AgentSettings, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
 	var settings AgentSettings
-	if err := json.Unmarshal(data, &settings); err != nil {
+	if err := util.ReadJSONC(path, &settings); err != nil {
 		return nil, err
 	}
 

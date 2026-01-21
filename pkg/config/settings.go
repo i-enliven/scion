@@ -10,6 +10,9 @@ import (
 	"github.com/ptone/scion-agent/pkg/util"
 )
 
+// Note: Settings files support JSONC format (JSON with comments and trailing commas).
+// Use util.UnmarshalJSONC for parsing user-editable config files.
+
 type RuntimeConfig struct {
 	Host      string            `json:"host,omitempty"`
 	Context   string            `json:"context,omitempty"`
@@ -226,7 +229,7 @@ func expandVolumeMounts(volumes []api.VolumeMount) []api.VolumeMount {
 
 func MergeSettings(base *Settings, data []byte) error {
 	var override Settings
-	if err := json.Unmarshal(data, &override); err != nil {
+	if err := util.UnmarshalJSONC(data, &override); err != nil {
 		return err
 	}
 
@@ -386,7 +389,7 @@ func UpdateSetting(grovePath string, key string, value string, global bool) erro
 	var current Settings
 	data, err := os.ReadFile(targetPath)
 	if err == nil {
-		if err := json.Unmarshal(data, &current); err != nil {
+		if err := util.UnmarshalJSONC(data, &current); err != nil {
 			return fmt.Errorf("failed to parse existing settings at %s: %w", targetPath, err)
 		}
 	} else if !os.IsNotExist(err) {
