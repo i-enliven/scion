@@ -509,6 +509,89 @@ func (d *agentDispatcherAdapter) DispatchAgentCreate(ctx context.Context, hubAge
 	return nil
 }
 
+// DispatchAgentStart implements hub.AgentDispatcher.
+// For co-located runtime hosts, this resumes a stopped agent.
+func (d *agentDispatcherAdapter) DispatchAgentStart(ctx context.Context, hubAgent *store.Agent) error {
+	// For now, starting an existing agent is not fully supported in the manager
+	// The manager's Start method creates new agents, not resumes existing ones
+	// TODO: Implement proper agent resume functionality in the manager
+	log.Printf("DispatchAgentStart called for agent %s (not fully implemented)", hubAgent.Name)
+	return nil
+}
+
+// DispatchAgentStop implements hub.AgentDispatcher.
+// It stops a running agent on the runtime host.
+func (d *agentDispatcherAdapter) DispatchAgentStop(ctx context.Context, hubAgent *store.Agent) error {
+	if err := d.manager.Stop(ctx, hubAgent.Name); err != nil {
+		return fmt.Errorf("failed to stop agent: %w", err)
+	}
+
+	// Update the hub agent record
+	hubAgent.Status = store.AgentStatusStopped
+	hubAgent.LastSeen = time.Now()
+
+	if err := d.store.UpdateAgent(ctx, hubAgent); err != nil {
+		log.Printf("Warning: failed to update agent status: %v", err)
+	}
+
+	return nil
+}
+
+// DispatchAgentRestart implements hub.AgentDispatcher.
+// It restarts an agent on the runtime host.
+func (d *agentDispatcherAdapter) DispatchAgentRestart(ctx context.Context, hubAgent *store.Agent) error {
+	// Stop then start
+	if err := d.manager.Stop(ctx, hubAgent.Name); err != nil {
+		log.Printf("Warning: failed to stop agent during restart: %v", err)
+	}
+
+	// TODO: Implement proper restart with start after stop
+	// For now, just update status
+	hubAgent.Status = store.AgentStatusRunning
+	hubAgent.LastSeen = time.Now()
+
+	if err := d.store.UpdateAgent(ctx, hubAgent); err != nil {
+		log.Printf("Warning: failed to update agent status: %v", err)
+	}
+
+	return nil
+}
+
+// DispatchAgentDelete implements hub.AgentDispatcher.
+// It removes an agent from the runtime host.
+func (d *agentDispatcherAdapter) DispatchAgentDelete(ctx context.Context, hubAgent *store.Agent, deleteFiles, removeBranch bool) error {
+	// Look up the local path for this grove on this runtime host
+	var grovePath string
+	if hubAgent.GroveID != "" && d.hostID != "" {
+		contrib, err := d.store.GetGroveContributor(ctx, hubAgent.GroveID, d.hostID)
+		if err != nil {
+			log.Printf("Warning: failed to get grove contributor for path lookup: %v", err)
+		} else if contrib.LocalPath != "" {
+			grovePath = contrib.LocalPath
+		}
+	}
+
+	// Stop the agent first (ignore error if already stopped)
+	_ = d.manager.Stop(ctx, hubAgent.Name)
+
+	// Delete the agent
+	_, err := d.manager.Delete(ctx, hubAgent.Name, deleteFiles, grovePath, removeBranch)
+	if err != nil {
+		return fmt.Errorf("failed to delete agent: %w", err)
+	}
+
+	return nil
+}
+
+// DispatchAgentMessage implements hub.AgentDispatcher.
+// It sends a message to an agent on the runtime host.
+func (d *agentDispatcherAdapter) DispatchAgentMessage(ctx context.Context, hubAgent *store.Agent, message string, interrupt bool) error {
+	if err := d.manager.Message(ctx, hubAgent.Name, message, interrupt); err != nil {
+		return fmt.Errorf("failed to send message: %w", err)
+	}
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(serverCmd)
 	serverCmd.AddCommand(serverStartCmd)

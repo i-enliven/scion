@@ -367,7 +367,29 @@ func (s *Server) updateAgent(w http.ResponseWriter, r *http.Request, id string) 
 }
 
 func (s *Server) deleteAgent(w http.ResponseWriter, r *http.Request, id string) {
-	if err := s.store.DeleteAgent(r.Context(), id); err != nil {
+	ctx := r.Context()
+	query := r.URL.Query()
+
+	deleteFiles := query.Get("deleteFiles") == "true"
+	removeBranch := query.Get("removeBranch") == "true"
+
+	// Get the agent to dispatch deletion to runtime host
+	agent, err := s.store.GetAgent(ctx, id)
+	if err != nil {
+		writeErrorFromErr(w, err, "")
+		return
+	}
+
+	// If a dispatcher is available, dispatch the deletion to the runtime host
+	if dispatcher := s.GetDispatcher(); dispatcher != nil && agent.RuntimeHostID != "" {
+		if err := dispatcher.DispatchAgentDelete(ctx, agent, deleteFiles, removeBranch); err != nil {
+			// Log but continue - the agent record should still be deleted from hub
+			// The runtime host deletion is best-effort
+			// (agent may already be stopped/deleted on the host)
+		}
+	}
+
+	if err := s.store.DeleteAgent(ctx, id); err != nil {
 		writeErrorFromErr(w, err, "")
 		return
 	}
@@ -385,12 +407,53 @@ func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request, id, a
 	case "status":
 		s.updateAgentStatus(w, r, id)
 	case "start", "stop", "restart":
-		// These would typically be forwarded to the runtime host
-		// For now, just update status
 		s.handleAgentLifecycle(w, r, id, action)
+	case "message":
+		s.handleAgentMessage(w, r, id)
 	default:
 		NotFound(w, "Action")
 	}
+}
+
+// MessageRequest is the request body for sending a message to an agent.
+type MessageRequest struct {
+	Message   string `json:"message"`
+	Interrupt bool   `json:"interrupt,omitempty"`
+}
+
+func (s *Server) handleAgentMessage(w http.ResponseWriter, r *http.Request, id string) {
+	ctx := r.Context()
+
+	var req MessageRequest
+	if err := readJSON(r, &req); err != nil {
+		BadRequest(w, "Invalid request body: "+err.Error())
+		return
+	}
+
+	if req.Message == "" {
+		ValidationError(w, "message is required", nil)
+		return
+	}
+
+	agent, err := s.store.GetAgent(ctx, id)
+	if err != nil {
+		writeErrorFromErr(w, err, "")
+		return
+	}
+
+	// If a dispatcher is available, dispatch the message to the runtime host
+	if dispatcher := s.GetDispatcher(); dispatcher != nil && agent.RuntimeHostID != "" {
+		if err := dispatcher.DispatchAgentMessage(ctx, agent, req.Message, req.Interrupt); err != nil {
+			RuntimeError(w, "Failed to send message to runtime host: "+err.Error())
+			return
+		}
+	} else {
+		// No dispatcher available
+		RuntimeError(w, "No runtime host dispatcher available for this agent")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) updateAgentStatus(w http.ResponseWriter, r *http.Request, id string) {
@@ -418,13 +481,33 @@ func (s *Server) handleAgentLifecycle(w http.ResponseWriter, r *http.Request, id
 	}
 
 	var newStatus string
+	var dispatchErr error
+
+	// If a dispatcher is available, dispatch the operation to the runtime host
+	dispatcher := s.GetDispatcher()
+
 	switch action {
 	case "start":
 		newStatus = store.AgentStatusRunning
+		if dispatcher != nil && agent.RuntimeHostID != "" {
+			dispatchErr = dispatcher.DispatchAgentStart(ctx, agent)
+		}
 	case "stop":
 		newStatus = store.AgentStatusStopped
+		if dispatcher != nil && agent.RuntimeHostID != "" {
+			dispatchErr = dispatcher.DispatchAgentStop(ctx, agent)
+		}
 	case "restart":
 		newStatus = store.AgentStatusRunning
+		if dispatcher != nil && agent.RuntimeHostID != "" {
+			dispatchErr = dispatcher.DispatchAgentRestart(ctx, agent)
+		}
+	}
+
+	// If dispatch failed, return error
+	if dispatchErr != nil {
+		RuntimeError(w, "Failed to dispatch to runtime host: "+dispatchErr.Error())
+		return
 	}
 
 	if err := s.store.UpdateAgentStatus(ctx, id, store.AgentStatusUpdate{
@@ -1121,6 +1204,10 @@ func (s *Server) updateGroveAgent(w http.ResponseWriter, r *http.Request, groveI
 // deleteGroveAgent deletes an agent within a specific grove
 func (s *Server) deleteGroveAgent(w http.ResponseWriter, r *http.Request, groveID, agentID string) {
 	ctx := r.Context()
+	query := r.URL.Query()
+
+	deleteFiles := query.Get("deleteFiles") == "true"
+	removeBranch := query.Get("removeBranch") == "true"
 
 	// Try to get by slug first to verify grove membership
 	agent, err := s.store.GetAgentBySlug(ctx, groveID, agentID)
@@ -1139,6 +1226,13 @@ func (s *Server) deleteGroveAgent(w http.ResponseWriter, r *http.Request, groveI
 		} else {
 			writeErrorFromErr(w, err, "")
 			return
+		}
+	}
+
+	// If a dispatcher is available, dispatch the deletion to the runtime host
+	if dispatcher := s.GetDispatcher(); dispatcher != nil && agent.RuntimeHostID != "" {
+		if err := dispatcher.DispatchAgentDelete(ctx, agent, deleteFiles, removeBranch); err != nil {
+			// Log but continue - the agent record should still be deleted from hub
 		}
 	}
 
@@ -1183,6 +1277,8 @@ func (s *Server) handleGroveAgentAction(w http.ResponseWriter, r *http.Request, 
 		s.updateAgentStatus(w, r, agent.ID)
 	case "start", "stop", "restart":
 		s.handleAgentLifecycle(w, r, agent.ID, action)
+	case "message":
+		s.handleAgentMessage(w, r, agent.ID)
 	default:
 		NotFound(w, "Action")
 	}

@@ -52,11 +52,89 @@ func DefaultServerConfig() ServerConfig {
 }
 
 // AgentDispatcher is the interface for dispatching agent operations to a runtime host.
-// When a runtime host is co-located with the hub, this enables zero-friction agent handoff.
+// Implementations may be local (co-located hub+host) or remote (HTTP-based).
 type AgentDispatcher interface {
 	// DispatchAgentCreate creates and starts an agent on the runtime host.
 	// Returns the updated agent info after creation/start.
 	DispatchAgentCreate(ctx context.Context, agent *store.Agent) error
+
+	// DispatchAgentStart resumes a stopped agent on the runtime host.
+	DispatchAgentStart(ctx context.Context, agent *store.Agent) error
+
+	// DispatchAgentStop stops a running agent on the runtime host.
+	DispatchAgentStop(ctx context.Context, agent *store.Agent) error
+
+	// DispatchAgentRestart restarts an agent on the runtime host.
+	DispatchAgentRestart(ctx context.Context, agent *store.Agent) error
+
+	// DispatchAgentDelete removes an agent from the runtime host.
+	// deleteFiles indicates whether to delete workspace files.
+	// removeBranch indicates whether to remove the git branch.
+	DispatchAgentDelete(ctx context.Context, agent *store.Agent, deleteFiles, removeBranch bool) error
+
+	// DispatchAgentMessage sends a message to an agent on the runtime host.
+	DispatchAgentMessage(ctx context.Context, agent *store.Agent, message string, interrupt bool) error
+}
+
+// RuntimeHostClient is an interface for communicating with runtime hosts over HTTP.
+// This allows the hub to dispatch operations to remote runtime hosts.
+type RuntimeHostClient interface {
+	// CreateAgent creates an agent on a remote runtime host.
+	CreateAgent(ctx context.Context, hostEndpoint string, req *RemoteCreateAgentRequest) (*RemoteAgentResponse, error)
+
+	// StartAgent starts an agent on a remote runtime host.
+	StartAgent(ctx context.Context, hostEndpoint string, agentID string) error
+
+	// StopAgent stops an agent on a remote runtime host.
+	StopAgent(ctx context.Context, hostEndpoint string, agentID string) error
+
+	// RestartAgent restarts an agent on a remote runtime host.
+	RestartAgent(ctx context.Context, hostEndpoint string, agentID string) error
+
+	// DeleteAgent deletes an agent from a remote runtime host.
+	DeleteAgent(ctx context.Context, hostEndpoint string, agentID string, deleteFiles, removeBranch bool) error
+
+	// MessageAgent sends a message to an agent on a remote runtime host.
+	MessageAgent(ctx context.Context, hostEndpoint string, agentID string, message string, interrupt bool) error
+}
+
+// RemoteCreateAgentRequest is the request body for creating an agent on a remote runtime host.
+type RemoteCreateAgentRequest struct {
+	RequestID   string            `json:"requestId,omitempty"`
+	AgentID     string            `json:"agentId"`
+	Name        string            `json:"name"`
+	GroveID     string            `json:"groveId"`
+	UserID      string            `json:"userId,omitempty"`
+	Config      *RemoteAgentConfig `json:"config,omitempty"`
+	ResolvedEnv map[string]string `json:"resolvedEnv,omitempty"`
+	HubEndpoint string            `json:"hubEndpoint,omitempty"`
+	AgentToken  string            `json:"agentToken,omitempty"`
+}
+
+// RemoteAgentConfig contains agent configuration for remote creation.
+type RemoteAgentConfig struct {
+	Template    string   `json:"template,omitempty"`
+	Image       string   `json:"image,omitempty"`
+	HomeDir     string   `json:"homeDir,omitempty"`
+	Workspace   string   `json:"workspace,omitempty"`
+	Env         []string `json:"env,omitempty"`
+	Task        string   `json:"task,omitempty"`
+	CommandArgs []string `json:"commandArgs,omitempty"`
+}
+
+// RemoteAgentResponse is the response from creating an agent on a remote runtime host.
+type RemoteAgentResponse struct {
+	Agent   *RemoteAgentInfo `json:"agent,omitempty"`
+	Created bool             `json:"created"`
+}
+
+// RemoteAgentInfo contains agent information from a remote runtime host.
+type RemoteAgentInfo struct {
+	ID              string `json:"id"`
+	AgentID         string `json:"agentId"`
+	Name            string `json:"name"`
+	Status          string `json:"status"`
+	ContainerStatus string `json:"containerStatus,omitempty"`
 }
 
 // Server is the Hub API HTTP server.

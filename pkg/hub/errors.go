@@ -143,6 +143,11 @@ func MethodNotAllowed(w http.ResponseWriter) {
 		"Method not allowed", nil)
 }
 
+// RuntimeError writes a 502 Bad Gateway response for runtime host errors.
+func RuntimeError(w http.ResponseWriter, message string) {
+	writeError(w, http.StatusBadGateway, ErrCodeRuntimeError, message, nil)
+}
+
 // NoRuntimeHost writes a 422 Unprocessable Entity response when no runtime host
 // is available for agent creation. Includes available hosts as alternatives.
 func NoRuntimeHost(w http.ResponseWriter, message string, availableHosts []RuntimeHostSummary) {
