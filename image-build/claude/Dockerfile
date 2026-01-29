@@ -4,8 +4,6 @@ FROM ${BASE_IMAGE}
 ARG TZ
 ENV TZ="$TZ"
 
-ARG CLAUDE_CODE_VERSION=latest
-
 ARG USERNAME=scion
 
 # Persist bash history.
@@ -49,7 +47,7 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 
 # Install Claude
 USER scion
-RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # Copy and set up firewall script
 USER root
