@@ -1,4 +1,4 @@
-ARG BASE_IMAGE
+ARG BASE_IMAGE=us-central1-docker.pkg.dev/ptone-misc/public-docker/scion-base
 FROM ${BASE_IMAGE}
 
 ARG TZ
