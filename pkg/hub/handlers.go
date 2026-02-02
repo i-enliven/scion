@@ -403,6 +403,15 @@ func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request, id, a
 		return
 	}
 
+	// For actions other than "status", we require user authentication.
+	// Agents should only be able to update their own status.
+	if action != "status" {
+		if GetUserIdentityFromContext(r.Context()) == nil {
+			writeError(w, http.StatusForbidden, ErrCodeForbidden, "This action requires user authentication", nil)
+			return
+		}
+	}
+
 	switch action {
 	case "status":
 		s.updateAgentStatus(w, r, id)
@@ -457,13 +466,31 @@ func (s *Server) handleAgentMessage(w http.ResponseWriter, r *http.Request, id s
 }
 
 func (s *Server) updateAgentStatus(w http.ResponseWriter, r *http.Request, id string) {
+	ctx := r.Context()
+	identity := GetIdentityFromContext(ctx)
+
+	// If identity is an agent, verify it's the same agent and has the correct scope
+	if agentIdent, ok := identity.(AgentIdentity); ok {
+		if agentIdent.ID() != id {
+			writeError(w, http.StatusForbidden, ErrCodeForbidden, "Agents can only update their own status", nil)
+			return
+		}
+		if !agentIdent.HasScope(ScopeAgentStatusUpdate) {
+			writeError(w, http.StatusForbidden, ErrCodeForbidden, "Missing required scope: agent:status:update", nil)
+			return
+		}
+	} else if identity == nil {
+		Unauthorized(w)
+		return
+	}
+
 	var status store.AgentStatusUpdate
 	if err := readJSON(r, &status); err != nil {
 		BadRequest(w, "Invalid request body: "+err.Error())
 		return
 	}
 
-	if err := s.store.UpdateAgentStatus(r.Context(), id, status); err != nil {
+	if err := s.store.UpdateAgentStatus(ctx, id, status); err != nil {
 		writeErrorFromErr(w, err, "")
 		return
 	}

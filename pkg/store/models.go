@@ -37,6 +37,7 @@ type Agent struct {
 	RuntimeHostID string `json:"runtimeHostId,omitempty"` // FK to RuntimeHost.ID
 	WebPTYEnabled bool   `json:"webPtyEnabled,omitempty"`
 	TaskSummary   string `json:"taskSummary,omitempty"`
+	Message       string `json:"message,omitempty"`
 
 	// Applied configuration (stored as JSON)
 	AppliedConfig *AgentAppliedConfig `json:"appliedConfig,omitempty"`

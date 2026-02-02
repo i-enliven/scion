@@ -56,6 +56,7 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 		migrationV5,
 		migrationV6,
 		migrationV7,
+		migrationV8,
 	}
 
 	// Create migrations table if not exists
@@ -394,6 +395,11 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(prefix);
 `
 
+const migrationV8 = `
+-- Add message column to agents table
+ALTER TABLE agents ADD COLUMN message TEXT;
+`
+
 // Helper functions for JSON marshaling/unmarshaling
 func marshalJSON(v interface{}) string {
 	if v == nil {
@@ -446,16 +452,16 @@ func (s *SQLiteStore) CreateAgent(ctx context.Context, agent *store.Agent) error
 			id, agent_id, name, template, grove_id,
 			labels, annotations,
 			status, connection_state, container_status, session_status, runtime_state,
-			image, detached, runtime, runtime_host_id, web_pty_enabled, task_summary,
+			image, detached, runtime, runtime_host_id, web_pty_enabled, task_summary, message,
 			applied_config,
 			created_at, updated_at, last_seen,
 			created_by, owner_id, visibility, state_version
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		agent.ID, agent.AgentID, agent.Name, agent.Template, agent.GroveID,
 		marshalJSON(agent.Labels), marshalJSON(agent.Annotations),
 		agent.Status, agent.ConnectionState, agent.ContainerStatus, agent.SessionStatus, agent.RuntimeState,
-		agent.Image, agent.Detached, agent.Runtime, nullableString(agent.RuntimeHostID), agent.WebPTYEnabled, agent.TaskSummary,
+		agent.Image, agent.Detached, agent.Runtime, nullableString(agent.RuntimeHostID), agent.WebPTYEnabled, agent.TaskSummary, agent.Message,
 		marshalJSON(agent.AppliedConfig),
 		agent.Created, agent.Updated, nullableTime(agent.LastSeen),
 		agent.CreatedBy, agent.OwnerID, agent.Visibility, agent.StateVersion,
@@ -479,7 +485,7 @@ func (s *SQLiteStore) GetAgent(ctx context.Context, id string) (*store.Agent, er
 		SELECT id, agent_id, name, template, grove_id,
 			labels, annotations,
 			status, connection_state, container_status, session_status, runtime_state,
-			image, detached, runtime, runtime_host_id, web_pty_enabled, task_summary,
+			image, detached, runtime, runtime_host_id, web_pty_enabled, task_summary, message,
 			applied_config,
 			created_at, updated_at, last_seen,
 			created_by, owner_id, visibility, state_version
@@ -488,7 +494,7 @@ func (s *SQLiteStore) GetAgent(ctx context.Context, id string) (*store.Agent, er
 		&agent.ID, &agent.AgentID, &agent.Name, &agent.Template, &agent.GroveID,
 		&labels, &annotations,
 		&agent.Status, &agent.ConnectionState, &agent.ContainerStatus, &agent.SessionStatus, &agent.RuntimeState,
-		&agent.Image, &agent.Detached, &agent.Runtime, &runtimeHostID, &agent.WebPTYEnabled, &agent.TaskSummary,
+		&agent.Image, &agent.Detached, &agent.Runtime, &runtimeHostID, &agent.WebPTYEnabled, &agent.TaskSummary, &agent.Message,
 		&appliedConfig,
 		&agent.Created, &agent.Updated, &lastSeen,
 		&agent.CreatedBy, &agent.OwnerID, &agent.Visibility, &agent.StateVersion,
@@ -523,7 +529,7 @@ func (s *SQLiteStore) GetAgentBySlug(ctx context.Context, groveID, slug string) 
 		SELECT id, agent_id, name, template, grove_id,
 			labels, annotations,
 			status, connection_state, container_status, session_status, runtime_state,
-			image, detached, runtime, runtime_host_id, web_pty_enabled, task_summary,
+			image, detached, runtime, runtime_host_id, web_pty_enabled, task_summary, message,
 			applied_config,
 			created_at, updated_at, last_seen,
 			created_by, owner_id, visibility, state_version
@@ -532,7 +538,7 @@ func (s *SQLiteStore) GetAgentBySlug(ctx context.Context, groveID, slug string) 
 		&agent.ID, &agent.AgentID, &agent.Name, &agent.Template, &agent.GroveID,
 		&labels, &annotations,
 		&agent.Status, &agent.ConnectionState, &agent.ContainerStatus, &agent.SessionStatus, &agent.RuntimeState,
-		&agent.Image, &agent.Detached, &agent.Runtime, &runtimeHostID, &agent.WebPTYEnabled, &agent.TaskSummary,
+		&agent.Image, &agent.Detached, &agent.Runtime, &runtimeHostID, &agent.WebPTYEnabled, &agent.TaskSummary, &agent.Message,
 		&appliedConfig,
 		&agent.Created, &agent.Updated, &lastSeen,
 		&agent.CreatedBy, &agent.OwnerID, &agent.Visibility, &agent.StateVersion,
@@ -566,7 +572,7 @@ func (s *SQLiteStore) UpdateAgent(ctx context.Context, agent *store.Agent) error
 			agent_id = ?, name = ?, template = ?,
 			labels = ?, annotations = ?,
 			status = ?, connection_state = ?, container_status = ?, session_status = ?, runtime_state = ?,
-			image = ?, detached = ?, runtime = ?, runtime_host_id = ?, web_pty_enabled = ?, task_summary = ?,
+			image = ?, detached = ?, runtime = ?, runtime_host_id = ?, web_pty_enabled = ?, task_summary = ?, message = ?,
 			applied_config = ?,
 			updated_at = ?, last_seen = ?,
 			owner_id = ?, visibility = ?, state_version = ?
@@ -575,7 +581,7 @@ func (s *SQLiteStore) UpdateAgent(ctx context.Context, agent *store.Agent) error
 		agent.AgentID, agent.Name, agent.Template,
 		marshalJSON(agent.Labels), marshalJSON(agent.Annotations),
 		agent.Status, agent.ConnectionState, agent.ContainerStatus, agent.SessionStatus, agent.RuntimeState,
-		agent.Image, agent.Detached, agent.Runtime, nullableString(agent.RuntimeHostID), agent.WebPTYEnabled, agent.TaskSummary,
+		agent.Image, agent.Detached, agent.Runtime, nullableString(agent.RuntimeHostID), agent.WebPTYEnabled, agent.TaskSummary, agent.Message,
 		marshalJSON(agent.AppliedConfig),
 		agent.Updated, nullableTime(agent.LastSeen),
 		agent.OwnerID, agent.Visibility, newVersion,
@@ -664,7 +670,7 @@ func (s *SQLiteStore) ListAgents(ctx context.Context, filter store.AgentFilter, 
 		SELECT id, agent_id, name, template, grove_id,
 			labels, annotations,
 			status, connection_state, container_status, session_status, runtime_state,
-			image, detached, runtime, runtime_host_id, web_pty_enabled, task_summary,
+			image, detached, runtime, runtime_host_id, web_pty_enabled, task_summary, message,
 			applied_config,
 			created_at, updated_at, last_seen,
 			created_by, owner_id, visibility, state_version
@@ -689,7 +695,7 @@ func (s *SQLiteStore) ListAgents(ctx context.Context, filter store.AgentFilter, 
 			&agent.ID, &agent.AgentID, &agent.Name, &agent.Template, &agent.GroveID,
 			&labels, &annotations,
 			&agent.Status, &agent.ConnectionState, &agent.ContainerStatus, &agent.SessionStatus, &agent.RuntimeState,
-			&agent.Image, &agent.Detached, &agent.Runtime, &runtimeHostID, &agent.WebPTYEnabled, &agent.TaskSummary,
+			&agent.Image, &agent.Detached, &agent.Runtime, &runtimeHostID, &agent.WebPTYEnabled, &agent.TaskSummary, &agent.Message,
 			&appliedConfig,
 			&agent.Created, &agent.Updated, &lastSeen,
 			&agent.CreatedBy, &agent.OwnerID, &agent.Visibility, &agent.StateVersion,
@@ -730,6 +736,7 @@ func (s *SQLiteStore) UpdateAgentStatus(ctx context.Context, id string, status s
 	result, err := s.db.ExecContext(ctx, `
 		UPDATE agents SET
 			status = COALESCE(NULLIF(?, ''), status),
+			message = COALESCE(NULLIF(?, ''), message),
 			connection_state = COALESCE(NULLIF(?, ''), connection_state),
 			container_status = COALESCE(NULLIF(?, ''), container_status),
 			session_status = COALESCE(NULLIF(?, ''), session_status),
@@ -739,7 +746,7 @@ func (s *SQLiteStore) UpdateAgentStatus(ctx context.Context, id string, status s
 			last_seen = ?
 		WHERE id = ?
 	`,
-		status.Status, status.ConnectionState, status.ContainerStatus,
+		status.Status, status.Message, status.ConnectionState, status.ContainerStatus,
 		status.SessionStatus, status.RuntimeState, status.TaskSummary,
 		now, now, id,
 	)
