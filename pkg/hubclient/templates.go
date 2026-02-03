@@ -1,18 +1,13 @@
 package hubclient
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"io"
-	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/ptone/scion-agent/pkg/apiclient"
+	"github.com/ptone/scion-agent/pkg/transfer"
 )
 
 // TemplateService handles template operations.
@@ -53,7 +48,8 @@ type TemplateService interface {
 
 // templateService is the implementation of TemplateService.
 type templateService struct {
-	c *client
+	c              *client
+	transferClient *transfer.Client
 }
 
 // ListTemplatesOptions configures template list filtering.
@@ -284,109 +280,24 @@ func (s *templateService) RequestDownloadURLs(ctx context.Context, templateID st
 
 // UploadFile uploads a file to the given signed URL.
 // For local storage (file:// URLs), this writes directly to the filesystem.
+// Delegates to transfer.Client.
 func (s *templateService) UploadFile(ctx context.Context, signedURL string, method string, headers map[string]string, content io.Reader) error {
-	// Handle file:// URLs for local storage
-	if strings.HasPrefix(signedURL, "file://") {
-		return s.uploadToFile(signedURL, content)
-	}
-
-	if method == "" {
-		method = http.MethodPut
-	}
-
-	// Read content into buffer for Content-Length
-	var body bytes.Buffer
-	if _, err := io.Copy(&body, content); err != nil {
-		return fmt.Errorf("failed to read content: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, signedURL, &body)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.ContentLength = int64(body.Len())
-
-	// Set headers
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	// Use a plain HTTP client for direct storage uploads
-	httpClient := s.c.transport.HTTPClient
-	if httpClient == nil {
-		httpClient = http.DefaultClient
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("upload failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	return nil
-}
-
-// uploadToFile writes content directly to a file path from a file:// URL.
-func (s *templateService) uploadToFile(fileURL string, content io.Reader) error {
-	// Parse file:// URL to get path
-	path := strings.TrimPrefix(fileURL, "file://")
-
-	// Ensure parent directory exists
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", dir, err)
-	}
-
-	// Create and write file
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", path, err)
-	}
-	defer f.Close()
-
-	if _, err := io.Copy(f, content); err != nil {
-		return fmt.Errorf("failed to write file %s: %w", path, err)
-	}
-
-	return nil
+	client := s.getTransferClient()
+	return client.UploadFileWithMethod(ctx, signedURL, method, headers, content)
 }
 
 // DownloadFile downloads a file from the given signed URL.
 // For local storage (file:// URLs), this reads directly from the filesystem.
+// Delegates to transfer.Client.
 func (s *templateService) DownloadFile(ctx context.Context, signedURL string) ([]byte, error) {
-	// Handle file:// URLs for local storage
-	if strings.HasPrefix(signedURL, "file://") {
-		path := strings.TrimPrefix(signedURL, "file://")
-		return os.ReadFile(path)
-	}
+	client := s.getTransferClient()
+	return client.DownloadFile(ctx, signedURL)
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, signedURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+// getTransferClient returns the transfer client, creating one if necessary.
+func (s *templateService) getTransferClient() *transfer.Client {
+	if s.transferClient == nil {
+		s.transferClient = transfer.NewClient(s.c.transport.HTTPClient)
 	}
-
-	// Use a plain HTTP client for direct storage downloads
-	httpClient := s.c.transport.HTTPClient
-	if httpClient == nil {
-		httpClient = http.DefaultClient
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("download failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("download failed with status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	return io.ReadAll(resp.Body)
+	return s.transferClient
 }
