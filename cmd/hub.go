@@ -93,12 +93,12 @@ var hubGrovesCmd = &cobra.Command{
 	RunE:  runHubGroves,
 }
 
-// hubHostsCmd lists runtime brokers on the Hub
-var hubHostsCmd = &cobra.Command{
-	Use:   "hosts",
+// hubBrokersCmd lists runtime brokers on the Hub
+var hubBrokersCmd = &cobra.Command{
+	Use:   "brokers",
 	Short: "List runtime brokers on the Hub",
 	Long:  `List runtime brokers registered on the Hub.`,
-	RunE:  runHubHosts,
+	RunE:  runHubBrokers,
 }
 
 // hubEnableCmd enables Hub integration
@@ -135,7 +135,7 @@ func init() {
 	hubCmd.AddCommand(hubRegisterCmd)
 	hubCmd.AddCommand(hubDeregisterCmd)
 	hubCmd.AddCommand(hubGrovesCmd)
-	hubCmd.AddCommand(hubHostsCmd)
+	hubCmd.AddCommand(hubBrokersCmd)
 	hubCmd.AddCommand(hubEnableCmd)
 	hubCmd.AddCommand(hubDisableCmd)
 
@@ -149,7 +149,7 @@ func init() {
 	// Common flags
 	hubStatusCmd.Flags().BoolVar(&hubOutputJSON, "json", false, "Output in JSON format")
 	hubGrovesCmd.Flags().BoolVar(&hubOutputJSON, "json", false, "Output in JSON format")
-	hubHostsCmd.Flags().BoolVar(&hubOutputJSON, "json", false, "Output in JSON format")
+	hubBrokersCmd.Flags().BoolVar(&hubOutputJSON, "json", false, "Output in JSON format")
 }
 
 // authInfo describes the authentication method being used
@@ -344,7 +344,7 @@ func runHubStatus(cmd *cobra.Command, args []string) error {
 	// Show grove_id from top-level setting (where it's now stored)
 	fmt.Printf("Grove ID:   %s\n", valueOrNone(settings.GroveID))
 	if settings.Hub != nil {
-		fmt.Printf("Host ID:    %s\n", valueOrNone(settings.Hub.BrokerID))
+		fmt.Printf("Broker ID:  %s\n", valueOrNone(settings.Hub.BrokerID))
 	}
 
 	// Authentication status section
@@ -481,7 +481,7 @@ func runHubRegister(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// ==== TWO-PHASE HOST REGISTRATION ====
+	// ==== TWO-PHASE BROKER REGISTRATION ====
 	// Phase 1: Check for existing broker credentials or create new broker
 	// Phase 2: Complete broker join to get HMAC secret
 	// Phase 3: Register grove with broker ID
@@ -552,7 +552,7 @@ func runHubRegister(cmd *cobra.Command, args []string) error {
 		if err := credStore.SaveFromJoinResponse(brokerID, joinResp.SecretKey, endpoint); err != nil {
 			fmt.Printf("Warning: failed to save broker credentials: %v\n", err)
 		} else {
-			fmt.Printf("Host credentials saved to %s\n", credStore.Path())
+			fmt.Printf("Broker credentials saved to %s\n", credStore.Path())
 		}
 	}
 
@@ -603,9 +603,9 @@ func runHubRegister(cmd *cobra.Command, args []string) error {
 	}
 
 	if resp.Broker != nil {
-		fmt.Printf("Host registered: %s (ID: %s)\n", resp.Broker.Name, resp.Broker.ID)
+		fmt.Printf("Broker registered: %s (ID: %s)\n", resp.Broker.Name, resp.Broker.ID)
 	} else {
-		fmt.Printf("Host linked: %s\n", brokerID)
+		fmt.Printf("Broker linked: %s\n", brokerID)
 	}
 
 	return nil
@@ -651,7 +651,7 @@ func runHubDeregister(cmd *cobra.Command, args []string) error {
 		_ = config.UpdateSetting(globalDir, "hub.brokerId", "", true)
 	}
 
-	fmt.Printf("Host %s deregistered from Hub\n", brokerID)
+	fmt.Printf("Broker %s deregistered from Hub\n", brokerID)
 	return nil
 }
 
@@ -704,7 +704,7 @@ func runHubGroves(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runHubHosts(cmd *cobra.Command, args []string) error {
+func runHubBrokers(cmd *cobra.Command, args []string) error {
 	// Resolve grove path to find project settings
 	resolvedPath, _, err := config.ResolveGrovePath(grovePath)
 	if err != nil {
@@ -726,7 +726,7 @@ func runHubHosts(cmd *cobra.Command, args []string) error {
 
 	resp, err := client.RuntimeBrokers().List(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to list hosts: %w", err)
+		return fmt.Errorf("failed to list brokers: %w", err)
 	}
 
 	if hubOutputJSON {

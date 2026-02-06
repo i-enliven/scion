@@ -228,7 +228,7 @@ func (s *Server) handleBrokerRotateSecret(w http.ResponseWriter, r *http.Request
 		actorType = "user"
 	} else if broker != nil {
 		actorID = broker.BrokerID()
-		actorType = "host"
+		actorType = "broker"
 	}
 	LogRotateEvent(r.Context(), s.auditLogger, brokerID, actorID, actorType, getClientIP(r))
 

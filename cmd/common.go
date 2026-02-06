@@ -373,7 +373,7 @@ func startAgentViaHub(hubCtx *HubContext, agentName, task string, resume bool) e
 	}
 	fmt.Printf("%s agent '%s'...\n", action, agentName)
 
-	resp, err := createAgentWithHostResolution(ctx, hubCtx, groveID, req)
+	resp, err := createAgentWithBrokerResolution(ctx, hubCtx, groveID, req)
 	if err != nil {
 		return wrapHubError(fmt.Errorf("failed to start agent via Hub: %w", err))
 	}
@@ -394,7 +394,7 @@ func startAgentViaHub(hubCtx *HubContext, agentName, task string, resume bool) e
 	return nil
 }
 
-func createAgentWithHostResolution(ctx context.Context, hubCtx *HubContext, groveID string, req *hubclient.CreateAgentRequest) (*hubclient.CreateAgentResponse, error) {
+func createAgentWithBrokerResolution(ctx context.Context, hubCtx *HubContext, groveID string, req *hubclient.CreateAgentRequest) (*hubclient.CreateAgentResponse, error) {
 	for {
 		resp, err := hubCtx.Client.GroveAgents(groveID).Create(ctx, req)
 		if err == nil {
@@ -407,8 +407,8 @@ func createAgentWithHostResolution(ctx context.Context, hubCtx *HubContext, grov
 		}
 
 		// Handle ambiguous broker
-		availableHosts, ok := apiErr.Details["availableHosts"].([]interface{})
-		if !ok || len(availableHosts) == 0 {
+		availableBrokers, ok := apiErr.Details["availableBrokers"].([]interface{})
+		if !ok || len(availableBrokers) == 0 {
 			return nil, err
 		}
 
@@ -418,10 +418,10 @@ func createAgentWithHostResolution(ctx context.Context, hubCtx *HubContext, grov
 		}
 
 		fmt.Printf("\nMultiple runtime brokers available for grove:\n")
-		for i, h := range availableHosts {
-			hostMap, _ := h.(map[string]interface{})
-			name, _ := hostMap["name"].(string)
-			status, _ := hostMap["status"].(string)
+		for i, h := range availableBrokers {
+			brokerMap, _ := h.(map[string]interface{})
+			name, _ := brokerMap["name"].(string)
+			status, _ := brokerMap["status"].(string)
 			fmt.Printf("  [%d] %s (%s)\n", i+1, name, status)
 		}
 		fmt.Println()
@@ -440,13 +440,13 @@ func createAgentWithHostResolution(ctx context.Context, hubCtx *HubContext, grov
 			}
 
 			var choice int
-			if _, err := fmt.Sscanf(input, "%d", &choice); err != nil || choice < 1 || choice > len(availableHosts) {
-				fmt.Printf("Invalid choice. Please enter 1-%d.\n", len(availableHosts))
+			if _, err := fmt.Sscanf(input, "%d", &choice); err != nil || choice < 1 || choice > len(availableBrokers) {
+				fmt.Printf("Invalid choice. Please enter 1-%d.\n", len(availableBrokers))
 				continue
 			}
 
-			selectedHost, _ := availableHosts[choice-1].(map[string]interface{})
-			req.RuntimeBrokerID, _ = selectedHost["id"].(string)
+			selectedBroker, _ := availableBrokers[choice-1].(map[string]interface{})
+			req.RuntimeBrokerID, _ = selectedBroker["id"].(string)
 			break
 		}
 		// Loop and retry with selected broker

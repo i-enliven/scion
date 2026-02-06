@@ -424,21 +424,21 @@ func ExecuteSync(ctx context.Context, hubCtx *HubContext, result *SyncResult, au
 			}
 
 			// Handle ambiguous broker
-			availableHosts, ok := apiErr.Details["availableHosts"].([]interface{})
-			if !ok || len(availableHosts) == 0 {
+			availableBrokers, ok := apiErr.Details["availableBrokers"].([]interface{})
+			if !ok || len(availableBrokers) == 0 {
 				return fmt.Errorf("failed to register agent '%s': %w", name, err)
 			}
 
 			// Only prompt if interactive and not auto-confirm
 			if autoConfirm || !util.IsTerminal() {
-				return fmt.Errorf("failed to register agent '%s': multiple runtime brokers available, specify a host via Hub config or --host flag (original error: %w)", name, err)
+				return fmt.Errorf("failed to register agent '%s': multiple runtime brokers available, specify a broker via Hub config or --broker flag (original error: %w)", name, err)
 			}
 
 			fmt.Printf("\nMultiple runtime brokers available for grove:\n")
-			for i, h := range availableHosts {
-				hostMap, _ := h.(map[string]interface{})
-				name, _ := hostMap["name"].(string)
-				status, _ := hostMap["status"].(string)
+			for i, h := range availableBrokers {
+				brokerMap, _ := h.(map[string]interface{})
+				name, _ := brokerMap["name"].(string)
+				status, _ := brokerMap["status"].(string)
 				fmt.Printf("  [%d] %s (%s)\n", i+1, name, status)
 			}
 			fmt.Println()
@@ -456,13 +456,13 @@ func ExecuteSync(ctx context.Context, hubCtx *HubContext, result *SyncResult, au
 			}
 
 			var choice int
-			if _, err := fmt.Sscanf(input, "%d", &choice); err != nil || choice < 1 || choice > len(availableHosts) {
-				fmt.Printf("Invalid choice. Please enter 1-%d.\n", len(availableHosts))
+			if _, err := fmt.Sscanf(input, "%d", &choice); err != nil || choice < 1 || choice > len(availableBrokers) {
+				fmt.Printf("Invalid choice. Please enter 1-%d.\n", len(availableBrokers))
 				continue
 			}
 
-			selectedHost, _ := availableHosts[choice-1].(map[string]interface{})
-			req.RuntimeBrokerID, _ = selectedHost["id"].(string)
+			selectedBroker, _ := availableBrokers[choice-1].(map[string]interface{})
+			req.RuntimeBrokerID, _ = selectedBroker["id"].(string)
 			// Loop and retry with selected broker
 		}
 	}
@@ -626,7 +626,7 @@ func registerGrove(ctx context.Context, hubCtx *HubContext, groveName string, is
 		}
 	}
 	if resp.Broker != nil {
-		fmt.Printf("Host registered: %s (ID: %s)\n", resp.Broker.Name, resp.Broker.ID)
+		fmt.Printf("Broker registered: %s (ID: %s)\n", resp.Broker.Name, resp.Broker.ID)
 	}
 
 	return nil
