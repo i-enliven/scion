@@ -54,8 +54,6 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "scion ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/scion-firewall && \
   chmod 0440 /etc/sudoers.d/scion-firewall
 
-USER scion
-
 # Install Claude - currently native installer is not working in container
 # RUN curl -fsSL https://claude.ai/install.sh | bash
 # ENV PATH=/home/scion/.local/bin:$PATH
