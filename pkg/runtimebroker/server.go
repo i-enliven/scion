@@ -496,10 +496,16 @@ func (s *Server) LookupContainerID(ctx context.Context, slug string) (string, er
 		return "", fmt.Errorf("agent '%s' does not support attach", slug)
 	}
 
-	// Get container ID
+	// Get container ID - prefer label, then ContainerID from runtime, then ID
 	containerID := agent.Labels["scion.container.id"]
 	if containerID == "" {
-		containerID = agent.ID // Fall back to agent ID
+		containerID = agent.ContainerID
+	}
+	if containerID == "" {
+		containerID = agent.ID
+	}
+	if containerID == "" {
+		return "", fmt.Errorf("agent '%s' has no container ID", slug)
 	}
 
 	return containerID, nil
