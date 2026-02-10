@@ -93,6 +93,7 @@ type StreamHandler struct {
 	streamType string
 	slug       string
 	dataCh     chan []byte
+	resizeCh   chan [2]int // [cols, rows]
 	closeCh    chan struct{}
 	closed     bool
 	closeMu    sync.Mutex
@@ -394,6 +395,8 @@ func (c *ControlChannelClient) handleMessage(data []byte) error {
 		return c.handleStreamData(data)
 	case wsprotocol.TypeStreamClose:
 		return c.handleStreamClose(data)
+	case wsprotocol.TypeStreamResize:
+		return c.handleStreamResize(data)
 	case wsprotocol.TypePing:
 		return c.conn.WriteJSON(wsprotocol.NewPongMessage())
 	default:
@@ -472,6 +475,7 @@ func (c *ControlChannelClient) handleStreamOpen(data []byte) error {
 		streamType: open.StreamType,
 		slug:       open.Slug,
 		dataCh:     make(chan []byte, 256),
+		resizeCh:   make(chan [2]int, 8),
 		closeCh:    make(chan struct{}),
 	}
 
@@ -542,6 +546,36 @@ func (c *ControlChannelClient) handleStreamClose(data []byte) error {
 
 	if c.config.Debug {
 		slog.Debug("Control channel stream closed", "streamID", closeMsg.StreamID, "reason", closeMsg.Reason)
+	}
+
+	return nil
+}
+
+// handleStreamResize processes a stream resize message.
+func (c *ControlChannelClient) handleStreamResize(data []byte) error {
+	var resizeMsg wsprotocol.StreamResizeMessage
+	if err := json.Unmarshal(data, &resizeMsg); err != nil {
+		return fmt.Errorf("failed to parse stream resize: %w", err)
+	}
+
+	c.streamMu.RLock()
+	handler, ok := c.streams[resizeMsg.StreamID]
+	c.streamMu.RUnlock()
+
+	if !ok {
+		return nil // Stream not found, ignore
+	}
+
+	// Send resize to handler (non-blocking)
+	select {
+	case handler.resizeCh <- [2]int{resizeMsg.Cols, resizeMsg.Rows}:
+	default:
+		// Channel full, drop oldest resize
+		select {
+		case <-handler.resizeCh:
+		default:
+		}
+		handler.resizeCh <- [2]int{resizeMsg.Cols, resizeMsg.Rows}
 	}
 
 	return nil

@@ -492,6 +492,16 @@ func (m *ControlChannelManager) CloseStream(brokerID, streamID, reason string) e
 	return hc.CloseStream(streamID, reason)
 }
 
+// ResizeStream sends a resize message for a stream.
+func (m *ControlChannelManager) ResizeStream(brokerID, streamID string, cols, rows int) error {
+	hc := m.GetConnection(brokerID)
+	if hc == nil {
+		return fmt.Errorf("broker %s not connected", brokerID)
+	}
+
+	return hc.ResizeStream(streamID, cols, rows)
+}
+
 // ListConnectedBrokers returns a list of currently connected broker IDs.
 func (m *ControlChannelManager) ListConnectedBrokers() []string {
 	m.mu.RLock()
@@ -602,6 +612,12 @@ func (hc *BrokerConnection) CloseStream(streamID, reason string) error {
 
 	closeMsg := wsprotocol.NewStreamCloseMessage(streamID, reason, 0)
 	return hc.conn.WriteJSON(closeMsg)
+}
+
+// ResizeStream sends a resize message for a stream.
+func (hc *BrokerConnection) ResizeStream(streamID string, cols, rows int) error {
+	resizeMsg := wsprotocol.NewStreamResizeMessage(streamID, cols, rows)
+	return hc.conn.WriteJSON(resizeMsg)
 }
 
 // Close closes the broker connection.

@@ -23,6 +23,8 @@ const (
 	TypeStreamOpen = "stream_open"
 	// TypeStreamClose is sent to close a stream
 	TypeStreamClose = "stream_close"
+	// TypeStreamResize is sent to resize a stream (e.g., PTY terminal resize)
+	TypeStreamResize = "stream_resize"
 	// TypeEvent is sent for async events (heartbeat, status updates)
 	TypeEvent = "event"
 	// TypePing is sent for keepalive
@@ -123,6 +125,14 @@ type StreamCloseMessage struct {
 	StreamID string `json:"streamId"`
 	Reason   string `json:"reason,omitempty"`
 	Code     int    `json:"code,omitempty"` // Optional exit code
+}
+
+// StreamResizeMessage requests a stream resize (e.g., terminal window resize).
+type StreamResizeMessage struct {
+	Type     string `json:"type"` // Always "stream_resize"
+	StreamID string `json:"streamId"`
+	Cols     int    `json:"cols"`
+	Rows     int    `json:"rows"`
 }
 
 // EventMessage carries async events.
@@ -278,6 +288,16 @@ func NewStreamCloseMessage(streamID, reason string, code int) *StreamCloseMessag
 		StreamID: streamID,
 		Reason:   reason,
 		Code:     code,
+	}
+}
+
+// NewStreamResizeMessage creates a stream resize message.
+func NewStreamResizeMessage(streamID string, cols, rows int) *StreamResizeMessage {
+	return &StreamResizeMessage{
+		Type:     TypeStreamResize,
+		StreamID: streamID,
+		Cols:     cols,
+		Rows:     rows,
 	}
 }
 

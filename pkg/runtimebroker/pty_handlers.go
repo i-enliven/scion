@@ -348,9 +348,36 @@ func (h *StreamPTYHandler) Run() error {
 		errCh <- h.readFromStream()
 	}()
 
+	// Handle resize events
+	go h.handleResize()
+
 	err := <-errCh
 	h.cancel()
 	return err
+}
+
+// handleResize listens for resize events and applies them to the PTY.
+func (h *StreamPTYHandler) handleResize() {
+	for {
+		select {
+		case <-h.ctx.Done():
+			return
+		case <-h.handler.closeCh:
+			return
+		case size := <-h.handler.resizeCh:
+			cols, rows := size[0], size[1]
+			if h.ptyMaster != nil {
+				if err := pty.Setsize(h.ptyMaster, &pty.Winsize{
+					Cols: uint16(cols),
+					Rows: uint16(rows),
+				}); err != nil {
+					slog.Debug("PTY resize failed", "slug", h.slug, "error", err)
+				} else {
+					slog.Debug("PTY resized", "slug", h.slug, "cols", cols, "rows", rows)
+				}
+			}
+		}
+	}
 }
 
 // startExec starts container exec with tmux attach using the configured runtime.

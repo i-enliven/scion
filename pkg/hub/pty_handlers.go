@@ -271,9 +271,10 @@ func (s *PTYSession) readFromClient() error {
 			if err := json.Unmarshal(data, &msg); err != nil {
 				continue
 			}
-			// Forward resize to broker
-			// TODO: Implement resize handling in stream protocol
-			slog.Debug("PTY Resize", "agentID", s.agentID, "cols", msg.Cols, "rows", msg.Rows)
+			// Forward resize to broker via control channel
+			if err := s.controlChan.ResizeStream(s.brokerID, s.stream.streamID, msg.Cols, msg.Rows); err != nil {
+				slog.Debug("PTY Resize forward failed", "agentID", s.agentID, "error", err)
+			}
 		}
 	}
 }
