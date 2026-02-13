@@ -31,6 +31,12 @@ func TestFormatFlagCheck(t *testing.T) {
 
 	// We assume git checks pass in this environment, or we handle failures.
 
+	// Build a fake interactive command for testing rejection
+	fakeAttachCmd := &cobra.Command{Use: "attach"}
+	fakeAttachCmd.SetArgs([]string{})
+	rootCmd.AddCommand(fakeAttachCmd)
+	defer rootCmd.RemoveCommand(fakeAttachCmd)
+
 	tests := []struct {
 		name          string
 		cmd           *cobra.Command
@@ -64,11 +70,23 @@ func TestFormatFlagCheck(t *testing.T) {
 			errorContains: "invalid format: yaml (allowed: json, plain)",
 		},
 		{
-			name:          "Json format, other command",
-			cmd:           &cobra.Command{Use: "other"},
+			name:        "Json format, non-interactive command",
+			cmd:         &cobra.Command{Use: "other"},
+			format:      "json",
+			expectError: false,
+		},
+		{
+			name:        "Json format, version command",
+			cmd:         versionCmd,
+			format:      "json",
+			expectError: false,
+		},
+		{
+			name:          "Json format, interactive command (attach)",
+			cmd:           fakeAttachCmd,
 			format:        "json",
 			expectError:   true,
-			errorContains: "format flag is not yet supported for command other",
+			errorContains: "--format json is not supported for 'scion attach'",
 		},
 	}
 
