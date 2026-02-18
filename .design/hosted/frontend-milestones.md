@@ -19,7 +19,7 @@ For architectural details and component specifications, see **`web-frontend-desi
 | M5 | Complete | Hub API Proxy |
 | M6 | Complete | Grove & Agent Pages |
 | M7 | Complete | SSE + NATS Server Infrastructure |
-| M8 | Not Started | Client Real-Time State Management |
+| M8 | Complete | Client Real-Time State Management |
 | M9 | Complete | Terminal Component |
 | M10 | Not Started | Agent Creation Workflow |
 | M11 | Not Started | Template Management UI |
@@ -473,20 +473,20 @@ The StateManager uses **view-scoped subscriptions**: the subscription scope foll
 
 ### Deliverables
 
-- [ ] **SSE Client class**
+- [x] **SSE Client class**
    - `connect(subjects: string[])` — builds URL with query params, opens `EventSource`
    - Automatic reconnection with exponential backoff
    - `EventSource` `Last-Event-ID` resume on reconnect
    - `disconnect()` for clean teardown
 
-- [ ] **StateManager with view scoping**
+- [x] **StateManager with view scoping**
    - `ViewScope` type: `dashboard`, `grove`, `agent-detail`
    - `setScope(scope)` — maps scope to NATS subjects, closes/reopens SSE connection
    - Full in-memory state map (agents, groves) maintained regardless of pagination
    - Delta merging for `update` events (status, created, deleted)
    - Event dispatch for component reactivity (`agents-updated`, `groves-updated`)
 
-- [ ] **View-scoped subscription lifecycle**
+- [x] **View-scoped subscription lifecycle**
    - `setScope()` called on navigation events via router integration
    - Subscription transitions:
      - `/groves` → `sub=grove.*.summary`
@@ -495,11 +495,11 @@ The StateManager uses **view-scoped subscriptions**: the subscription scope foll
    - SSE connection closed and reopened on each navigation (not mutated in-band)
    - Clean disconnect on page unload
 
-- [ ] **Hydration from SSR data** (deferred from M6)
+- [x] **Hydration from SSR data** (deferred from M6)
    - Parse `__SCION_DATA__` script tag into StateManager on page load
    - SSE connection opened after hydration (deltas applied on top of snapshot)
 
-- [ ] **Component wiring**
+- [x] **Component wiring**
    - Grove list page receives live grove summary updates
    - Agent list page receives live agent status updates within grove
    - Agent detail page receives full event stream
@@ -527,6 +527,14 @@ The StateManager uses **view-scoped subscriptions**: the subscription scope foll
 - **Optimistic updates** (immediate UI feedback on action before SSE confirms) are not required for initial M8 delivery. They can be added incrementally once the SSE pipeline is proven stable.
 - **The StateManager is a singleton**, accessed via import. Components do not instantiate their own state managers.
 - **Pagination does not affect subscriptions.** The grove-level subscription covers all agents in the grove. The component renders the current page slice from the full state map.
+
+### Implementation Notes
+
+- **SSEClient** (`src/client/sse-client.ts`): Wraps `EventSource` with connection management. `connect(subjects)` builds the `/events?sub=...` URL and opens the stream. Auto-reconnect uses exponential backoff (1s base, capped at 30s, max 10 attempts). `EventSource` handles `Last-Event-ID` resume natively. Dispatches `update`, `connected`, `disconnected`, and `reconnecting` events.
+- **StateManager** (`src/client/state.ts`): Singleton managing `AppState` (agents/groves maps + connection status + current scope). `setScope()` maps view context to NATS subjects and opens/closes SSE connections. `handleUpdate()` parses NATS subject hierarchy to route deltas: grove-scoped agent events (`grove.{id}.agent.{type}`) and agent-scoped events (`agent.{id}.{type}`) both merge into the agents map. `hydrate()` loads SSR initial data.
+- **Client Entry** (`src/client/main.ts`): Imports `stateManager`, calls `hydrate()` with `__SCION_DATA__` on init, disconnects SSE on `beforeunload`.
+- **Component Integration**: Each page component calls `stateManager.setScope()` in `connectedCallback()` and listens for `agents-updated`/`groves-updated` events. Agent-detail sets scope after `loadData()` resolves (needs `groveId` from API response). Components merge SSE deltas into their local state arrays to trigger Lit re-renders.
+- **Scope Setting**: Groves list and Agents list use `dashboard` scope. Grove-detail uses `grove` scope. Agent-detail uses `agent-detail` scope (set after data load). Scope change closes old SSE connection and opens new one with different subjects.
 
 ---
 

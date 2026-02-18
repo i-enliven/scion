@@ -24,6 +24,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import type { PageData, Agent } from '../../shared/types.js';
+import { stateManager } from '../../client/state.js';
 import '../shared/status-badge.js';
 
 @customElement('scion-page-agents')
@@ -221,9 +222,34 @@ export class ScionPageAgents extends LitElement {
     }
   `;
 
+  private boundOnAgentsUpdated = this.onAgentsUpdated.bind(this);
+
   override connectedCallback(): void {
     super.connectedCallback();
     void this.loadAgents();
+
+    // Set SSE scope to dashboard (all grove summaries)
+    stateManager.setScope({ type: 'dashboard' });
+
+    // Listen for real-time agent updates
+    stateManager.addEventListener('agents-updated', this.boundOnAgentsUpdated as EventListener);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    stateManager.removeEventListener('agents-updated', this.boundOnAgentsUpdated as EventListener);
+  }
+
+  private onAgentsUpdated(): void {
+    const updatedAgents = stateManager.getAgents();
+    if (updatedAgents.length > 0) {
+      // Merge SSE agent deltas into local agent list
+      const agentMap = new Map(this.agents.map((a) => [a.id, a]));
+      for (const agent of updatedAgents) {
+        agentMap.set(agent.id, { ...agentMap.get(agent.id), ...agent } as Agent);
+      }
+      this.agents = Array.from(agentMap.values());
+    }
   }
 
   private async loadAgents(): Promise<void> {

@@ -17,17 +17,16 @@
 /**
  * Client entry point
  *
- * Handles hydration of SSR content and client-side routing
+ * Handles hydration of SSR content, client-side routing, and
+ * real-time state management via SSE.
  */
 
 // IMPORTANT: Import hydration support BEFORE any Lit components
 // This enables proper hydration of SSR-rendered declarative shadow DOM
 import '@lit-labs/ssr-client/lit-element-hydrate-support.js';
 
-// @vaadin/router reserved for future use in client-side routing
-// import { Router } from '@vaadin/router';
-
 import type { PageData } from '../shared/types.js';
+import { stateManager } from './state.js';
 
 // Import all components for client-side hydration and routing
 // App shell (imports shared components internally)
@@ -56,10 +55,13 @@ import '../components/pages/login.js';
 async function init(): Promise<void> {
   console.info('[Scion] Initializing client...');
 
-  // Get initial data from SSR
+  // Get initial data from SSR and hydrate state manager
   const initialData = getInitialData();
   if (initialData) {
     console.info('[Scion] Initial page data:', initialData.path);
+    if (initialData.data) {
+      stateManager.hydrate(initialData.data as { agents?: import('../shared/types.js').Agent[]; groves?: import('../shared/types.js').Grove[] });
+    }
   }
 
   // Wait for custom elements to be defined
@@ -86,6 +88,11 @@ async function init(): Promise<void> {
 
   // Setup client-side router for navigation
   setupRouter();
+
+  // Disconnect SSE on page unload
+  window.addEventListener('beforeunload', () => {
+    stateManager.disconnect();
+  });
 
   console.info('[Scion] Client initialization complete');
 }
@@ -191,5 +198,5 @@ if (document.readyState === 'loading') {
   void init();
 }
 
-// Export for potential use in tests
-export { getInitialData, navigateTo };
+// Export for use in components and tests
+export { getInitialData, navigateTo, stateManager };

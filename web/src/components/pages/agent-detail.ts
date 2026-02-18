@@ -24,6 +24,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import type { PageData, Agent, Grove } from '../../shared/types.js';
+import { stateManager } from '../../client/state.js';
 import '../shared/status-badge.js';
 
 @customElement('scion-page-agent-detail')
@@ -345,6 +346,9 @@ export class ScionPageAgentDetail extends LitElement {
     }
   `;
 
+  private boundOnAgentsUpdated = this.onAgentsUpdated.bind(this);
+  private boundOnGrovesUpdated = this.onGrovesUpdated.bind(this);
+
   override connectedCallback(): void {
     super.connectedCallback();
     // SSR property bindings (.agentId=) aren't restored during client-side
@@ -356,6 +360,32 @@ export class ScionPageAgentDetail extends LitElement {
       }
     }
     void this.loadData();
+
+    // Listen for real-time updates (scope is set after loadData resolves with groveId)
+    stateManager.addEventListener('agents-updated', this.boundOnAgentsUpdated as EventListener);
+    stateManager.addEventListener('groves-updated', this.boundOnGrovesUpdated as EventListener);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    stateManager.removeEventListener('agents-updated', this.boundOnAgentsUpdated as EventListener);
+    stateManager.removeEventListener('groves-updated', this.boundOnGrovesUpdated as EventListener);
+  }
+
+  private onAgentsUpdated(): void {
+    const updatedAgent = stateManager.getAgent(this.agentId);
+    if (updatedAgent && this.agent) {
+      this.agent = { ...this.agent, ...updatedAgent };
+    }
+  }
+
+  private onGrovesUpdated(): void {
+    if (this.agent?.groveId) {
+      const updatedGrove = stateManager.getGrove(this.agent.groveId);
+      if (updatedGrove && this.grove) {
+        this.grove = { ...this.grove, ...updatedGrove };
+      }
+    }
   }
 
   private async loadData(): Promise<void> {
@@ -375,6 +405,15 @@ export class ScionPageAgentDetail extends LitElement {
       }
 
       this.agent = (await agentResponse.json()) as Agent;
+
+      // Set SSE scope now that we have the groveId
+      if (this.agent.groveId) {
+        stateManager.setScope({
+          type: 'agent-detail',
+          groveId: this.agent.groveId,
+          agentId: this.agentId,
+        });
+      }
 
       // Try to load grove info
       if (this.agent.groveId) {

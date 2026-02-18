@@ -24,6 +24,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import type { PageData, Grove, Agent } from '../../shared/types.js';
+import { stateManager } from '../../client/state.js';
 import '../shared/status-badge.js';
 
 @customElement('scion-page-grove-detail')
@@ -324,6 +325,9 @@ export class ScionPageGroveDetail extends LitElement {
     }
   `;
 
+  private boundOnAgentsUpdated = this.onAgentsUpdated.bind(this);
+  private boundOnGrovesUpdated = this.onGrovesUpdated.bind(this);
+
   override connectedCallback(): void {
     super.connectedCallback();
     // SSR property bindings (.groveId=) aren't restored during client-side
@@ -335,6 +339,49 @@ export class ScionPageGroveDetail extends LitElement {
       }
     }
     void this.loadData();
+
+    // Set SSE scope to this grove (receives all agent events within grove)
+    if (this.groveId) {
+      stateManager.setScope({ type: 'grove', groveId: this.groveId });
+    }
+
+    // Listen for real-time updates
+    stateManager.addEventListener('agents-updated', this.boundOnAgentsUpdated as EventListener);
+    stateManager.addEventListener('groves-updated', this.boundOnGrovesUpdated as EventListener);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    stateManager.removeEventListener('agents-updated', this.boundOnAgentsUpdated as EventListener);
+    stateManager.removeEventListener('groves-updated', this.boundOnGrovesUpdated as EventListener);
+  }
+
+  private onAgentsUpdated(): void {
+    const updatedAgents = stateManager.getAgents();
+    if (updatedAgents.length > 0) {
+      // Merge SSE agent deltas into local agent list
+      const agentMap = new Map(this.agents.map((a) => [a.id, a]));
+      for (const agent of updatedAgents) {
+        if (agent.groveId === this.groveId || agentMap.has(agent.id)) {
+          agentMap.set(agent.id, { ...agentMap.get(agent.id), ...agent } as Agent);
+        }
+      }
+      // Remove agents that were deleted (present locally but not in state)
+      const stateAgentIds = new Set(updatedAgents.map((a) => a.id));
+      for (const id of agentMap.keys()) {
+        if (!stateAgentIds.has(id) && stateManager.getAgent(id) === undefined) {
+          agentMap.delete(id);
+        }
+      }
+      this.agents = Array.from(agentMap.values());
+    }
+  }
+
+  private onGrovesUpdated(): void {
+    const updatedGrove = stateManager.getGrove(this.groveId);
+    if (updatedGrove && this.grove) {
+      this.grove = { ...this.grove, ...updatedGrove };
+    }
   }
 
   private async loadData(): Promise<void> {

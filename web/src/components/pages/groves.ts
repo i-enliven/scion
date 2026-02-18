@@ -24,6 +24,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 import type { PageData, Grove } from '../../shared/types.js';
+import { stateManager } from '../../client/state.js';
 import '../shared/status-badge.js';
 
 @customElement('scion-page-groves')
@@ -228,9 +229,35 @@ export class ScionPageGroves extends LitElement {
     }
   `;
 
+  private boundOnGrovesUpdated = this.onGrovesUpdated.bind(this);
+
   override connectedCallback(): void {
     super.connectedCallback();
     void this.loadGroves();
+
+    // Set SSE scope to dashboard (grove summaries)
+    stateManager.setScope({ type: 'dashboard' });
+
+    // Listen for real-time grove updates
+    stateManager.addEventListener('groves-updated', this.boundOnGrovesUpdated as EventListener);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    stateManager.removeEventListener('groves-updated', this.boundOnGrovesUpdated as EventListener);
+  }
+
+  private onGrovesUpdated(): void {
+    const updatedGroves = stateManager.getGroves();
+    if (updatedGroves.length > 0) {
+      // Merge SSE updates into our local groves list.
+      // The state manager maintains a map keyed by ID; merge into local array.
+      const groveMap = new Map(this.groves.map((g) => [g.id, g]));
+      for (const grove of updatedGroves) {
+        groveMap.set(grove.id, { ...groveMap.get(grove.id), ...grove } as Grove);
+      }
+      this.groves = Array.from(groveMap.values());
+    }
   }
 
   private async loadGroves(): Promise<void> {
