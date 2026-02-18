@@ -1,5 +1,20 @@
 # Agent Services: Template-Defined Sidecar Processes
 
+## Status: Implemented
+
+**Implementation:** `pkg/sciontool/services/manager.go` (ServiceManager with 14 methods)
+
+The design below has been fully implemented, including:
+- Service spec parsing from `scion-agent.yaml` (`pkg/api/types.go` ServiceSpec)
+- Process lifecycle management (start, stop, restart on failure)
+- Consecutive failure tracking (max 3 failures before abandonment)
+- Log file management (stdout, stderr, lifecycle logs)
+- Ready-check support between services
+- Graceful shutdown with configurable grace period
+- UID/GID synchronization for container user mapping
+
+---
+
 ## Overview
 
 Templates should be able to specify additional processes ("services") that start automatically alongside the main harness process inside the container. The motivating use case is MCP servers (e.g., Chrome DevTools MCP) and supporting daemons (e.g., Xvfb for headless browser rendering), but the mechanism should be general enough to support any background process an agent template needs.

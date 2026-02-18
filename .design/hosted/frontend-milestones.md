@@ -16,11 +16,11 @@ For architectural details and component specifications, see **`web-frontend-desi
 | M2 | Complete | Lit SSR Integration |
 | M3 | Complete | Web Awesome Component Library |
 | M4 | Complete | Authentication Flow |
-| M5 | In Progress | Hub API Proxy |
+| M5 | Complete | Hub API Proxy |
 | M6 | Complete | Grove & Agent Pages |
 | M7 | Complete | SSE + NATS Server Infrastructure |
 | M8 | Not Started | Client Real-Time State Management |
-| M9 | Not Started | Terminal Component |
+| M9 | Complete | Terminal Component |
 | M10 | Not Started | Agent Creation Workflow |
 | M11 | Not Started | Template Management UI |
 | M12 | Not Started | User & Group Management UI |
@@ -299,6 +299,7 @@ Create a simple mock for development without a real Hub:
 - **API Proxy** (`src/server/routes/api.ts`): Full implementation with auth header forwarding, debug logging, error transformation, and query string passthrough
 - **Dev Token Injection**: When `DEV_AUTH=true`, the proxy injects a dev token for local Hub authentication
 - **SSR Data Fetching**: Deferred to client-side in current implementation; pages fetch data on mount rather than during SSR
+- **Status**: Core proxy functionality complete. SSR data fetching and mock Hub deferred as non-blocking.
 
 ---
 
@@ -535,25 +536,25 @@ The StateManager uses **view-scoped subscriptions**: the subscription scope foll
 
 ### Deliverables
 
-- [ ] **Terminal component**
-   - `<scion-terminal>` Lit component
-   - xterm.js integration with addons (fit, web-links)
-   - Theme matching Web Awesome colors
+- [x] **Terminal component**
+   - `<scion-terminal>` Lit component (`web/src/components/pages/terminal.ts`, 553 lines)
+   - xterm.js integration with addons (fit, web-links) via dynamic imports
+   - Theme matching with dark terminal styling, cursor configuration
 
-- [ ] **WebSocket connection**
-   - Ticket-based authentication
-   - PTY WebSocket proxy through Koa
-   - Binary data handling (base64)
+- [x] **WebSocket connection**
+   - PTY WebSocket proxy through Koa (`web/src/server/routes/ws-pty.ts`)
+   - WebSocket relay to Hub PTY endpoint
+   - Binary data handling
 
-- [ ] **Terminal features**
-   - Auto-resize on container change
-   - Connection status indicator
-   - Reconnection handling
-   - Copy/paste support
+- [x] **Terminal features**
+   - Auto-resize on container change via ResizeObserver
+   - Connection status indicator (connected/disconnected badge)
+   - Reconnection handling with reconnect button
+   - Tmux detach sequence on cleanup/navigate-away
 
-- [ ] **Terminal page**
-   - Full-screen terminal view
-   - Toolbar with agent info and actions
+- [x] **Terminal page**
+   - Full-screen terminal view at `/agents/:agentId/terminal`
+   - Agent info header with status
    - Back navigation
 
 ### Test Criteria
@@ -577,6 +578,11 @@ The Koa server proxies WebSocket connections to the Hub API:
 ```
 Browser WS → Koa WS Proxy → Hub API WS → Runtime Broker
 ```
+
+### Implementation Notes
+
+- **Terminal Component** (`web/src/components/pages/terminal.ts`): Full xterm.js integration with dynamic module loading, ResizeObserver-based auto-sizing, WebSocket lifecycle management, connection status indicators, and tmux detach on navigate-away
+- **WebSocket Proxy** (`web/src/server/routes/ws-pty.ts`): Koa WebSocket route that proxies PTY connections to the Hub API endpoint, forwarding auth headers from the session
 
 ---
 

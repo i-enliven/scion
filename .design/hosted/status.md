@@ -1,6 +1,7 @@
 # Hosted Architecture Implementation Status
 
 **Generated:** 2026-01-26
+**Updated:** 2026-02-18
 **Status:** Living Document
 
 This document provides an analysis of the hosted architecture implementation, comparing design specifications against actual code, identifying gaps and edge cases, and proposing next milestones.
@@ -111,40 +112,49 @@ All store interfaces defined in `pkg/store/store.go`:
 
 ### 1.5 Web Frontend
 
+> **Note:** The milestone numbering below follows the original `status.md` scheme (M1-M11).
+> The canonical frontend milestones are tracked in `frontend-milestones.md` (M1-M16) which
+> uses a different numbering. See that document for detailed deliverables.
+
 | Milestone | Description | Status |
 |-----------|-------------|--------|
 | M1 | Project Setup (Koa, Vite, TypeScript) | ✅ Complete |
-| M2 | Core Shell & Routing | ✅ Complete |
-| M3 | Grove Management | ❌ Not Started |
-| M4 | Runtime Broker Management | ❌ Not Started |
-| M5 | Agent List & Overview | ❌ Not Started |
-| M6 | Agent Creation Wizard | ❌ Not Started |
-| M7 | Real-time Agent Monitoring | ❌ Not Started |
-| M8 | Terminal Integration | ❌ Not Started |
-| M9 | Dashboard & Search | ❌ Not Started |
-| M10 | Settings & Preferences | ❌ Not Started |
-| M11 | Notifications & Polish | ❌ Not Started |
+| M2 | Core Shell & Routing (Lit SSR) | ✅ Complete |
+| M3 | Web Awesome Component Library | ✅ Complete |
+| M4 | OAuth Authentication Flow | ✅ Complete |
+| M5 | Hub API Proxy | ✅ Complete |
+| M6 | Grove & Agent Management Pages | ✅ Complete |
+| M7 | SSE + NATS Server Infrastructure | ✅ Complete |
+| M8 | Client Real-Time State Management | ❌ Not Started |
+| M9 | Terminal Component (xterm.js) | ✅ Complete |
+| M10 | Agent Creation Wizard | ❌ Not Started |
+| M11 | Template Management UI | ❌ Not Started |
+| M12-M17 | Users, Permissions, Secrets, API Keys, Hardening, Deployment | ❌ Not Started |
 
 **Current Frontend State:**
-- Koa server with middleware (dev-auth, error-handler, logger, security)
-- Lit SSR rendering pipeline
-- Basic components: app-shell, header, nav, breadcrumb, status-badge
-- Stub pages: home, agents, groves, not-found
-- Shoelace component library integrated
+- Koa server with middleware (auth, error-handler, logger, security)
+- Lit SSR rendering pipeline with client-side hydration
+- Web Awesome (Shoelace) component library integrated
+- OAuth authentication (Google, GitHub) with session management
+- Hub API proxy with auth header forwarding
+- Grove list, grove detail, agent list, agent detail pages with action buttons
+- Full xterm.js terminal component with WebSocket PTY proxy
 - Vaadin router for client-side routing
 
 ### 1.6 Not Yet Implemented
 
 | Feature | Design Doc | Notes |
 |---------|------------|-------|
-| OAuth Authentication | `dev-auth.md` | Only dev auth implemented |
-| WebSocket Control Channel | `runtimebroker-websocket.md` | ✅ **Implemented** - See Section 9 |
-| PTY Relay | `runtimebroker-websocket.md` | ✅ **Implemented** - CLI attach via Hub |
-| NATS Integration | `web-frontend-design.md` | For real-time updates |
-| SSE Snapshot+Delta | `web-frontend-design.md` | For UI state sync |
-| xterm.js Terminal | `frontend-milestones.md` | M8 milestone (PTY backend ready) |
-| Agent Creation Wizard | `frontend-milestones.md` | M6 milestone |
-| Production Auth Flow | `hosted-architecture.md` | Session management |
+| ~~OAuth Authentication~~ | ~~`dev-auth.md`~~ | ✅ **Implemented** — Web OAuth (Google, GitHub) + CLI auth |
+| ~~WebSocket Control Channel~~ | ~~`runtimebroker-websocket.md`~~ | ✅ **Implemented** — See Section 9 |
+| ~~PTY Relay~~ | ~~`runtimebroker-websocket.md`~~ | ✅ **Implemented** — CLI attach via Hub |
+| ~~NATS Server Infrastructure~~ | ~~`web-frontend-design.md`~~ | ✅ **Implemented** — M7 complete (NATS client, SSE manager, /events endpoint) |
+| Client Real-Time State | `frontend-milestones.md` | M8 — SSE client, StateManager, view-scoped subscriptions |
+| ~~xterm.js Terminal~~ | ~~`frontend-milestones.md`~~ | ✅ **Implemented** — Full terminal component (M9) |
+| Agent Creation Wizard | `frontend-milestones.md` | M10 milestone |
+| Taskless Refactor | `taskless-refactor.md` | Design complete, not yet implemented |
+| User/Group Management UI | `frontend-milestones.md` | M12 milestone |
+| Permissions/Policy UI | `frontend-milestones.md` | M13 milestone |
 
 ---
 
@@ -343,49 +353,49 @@ All store interfaces defined in `pkg/store/store.go`:
 #### M3.3: PTY Relay Implementation ✅ COMPLETE
 - ✅ WebSocket endpoint for terminal attach (`/api/v1/agents/{id}/pty`)
 - ✅ Bidirectional I/O relay via control channel streams
-- ⚠️ Window resize handling (events captured, tmux resize pending)
+- ✅ Window resize handling (initial PTY allocation uses actual terminal size via hub/broker)
 - ✅ Disconnection handling (graceful close)
 - See `runtimebroker-websocket.md` Section 9 for implementation details
 
 #### M3.4: Agent Monitoring
-- Real-time status updates (SSE or WebSocket)
-- Resource usage metrics (CPU, memory)
-- Log streaming
-- Event history
+- Real-time status updates (SSE or WebSocket) — NOT STARTED
+- Resource usage metrics (CPU, memory) — NOT STARTED
+- Log streaming — NOT STARTED
+- Event history — NOT STARTED
 
 ### Phase 4: User Experience
 
-#### M4.1: Web Frontend Grove Management (M3)
-- Grove list with status indicators
-- Grove registration flow
-- Contributor management
-- Grove settings
+#### M4.1: Web Frontend Grove Management ✅ COMPLETE
+- ✅ Grove list with status indicators
+- ✅ Grove detail with agent list and stats
+- Contributor management — partial
+- Grove settings — not started
 
-#### M4.2: Web Frontend Agent Views (M5-M6)
-- Agent list with filtering/sorting
-- Agent detail view with status
-- Agent creation wizard
-- Start/stop controls
+#### M4.2: Web Frontend Agent Views ✅ MOSTLY COMPLETE
+- ✅ Agent list with filtering
+- ✅ Agent detail view with status
+- Agent creation wizard — NOT STARTED (M10)
+- ✅ Start/stop/delete controls
 
-#### M4.3: Terminal Integration (M8)
-- xterm.js component
-- WebSocket connection to PTY relay
-- Copy/paste support
-- Session persistence
+#### M4.3: Terminal Integration ✅ COMPLETE
+- ✅ xterm.js component (`web/src/components/pages/terminal.ts`)
+- ✅ WebSocket connection to PTY relay via Koa proxy
+- ✅ Tmux detach on navigate-away
+- ✅ Connection status and reconnect
 
-#### M4.4: Real-time Updates (M7)
-- SSE connection for state changes
-- Snapshot + delta protocol
-- Optimistic UI updates
-- Offline indicator
+#### M4.4: Real-time Updates
+- ✅ SSE + NATS server infrastructure (M7 — NATS client, SSE manager, /events endpoint)
+- Client real-time state management (M8) — NOT STARTED
+- Optimistic UI updates — NOT STARTED
+- Offline indicator — NOT STARTED
 
 ### Phase 5: Production Readiness
 
-#### M5.1: Authentication
-- OAuth provider integration
-- Session management
-- Token refresh
-- Logout and session invalidation
+#### M5.1: Authentication ✅ MOSTLY COMPLETE
+- ✅ OAuth provider integration (Google, GitHub)
+- ✅ Session management (web) + credential storage (CLI)
+- Token refresh — NOT STARTED
+- ✅ Logout and session invalidation
 
 #### M5.2: Security Hardening
 - Secret encryption at rest
@@ -411,15 +421,21 @@ All store interfaces defined in `pkg/store/store.go`:
 
 1. **Agent State Transitions** - Add validation to prevent invalid state changes (e.g., starting already-running agent).
 
-2. **Broker Heartbeat** - Implement basic heartbeat to detect broker disconnection and stale agent states.
+2. ~~**Broker Heartbeat**~~ - ✅ Implemented. Broker heartbeat and health monitoring in place.
 
 3. **Error Response Consistency** - Standardize error format across all API endpoints.
 
-4. **Frontend M3** - Complete Grove Management to enable basic registration workflow.
+4. ~~**Frontend Grove/Agent Management**~~ - ✅ Complete (M3-M6). Grove list, agent list, agent detail pages with start/stop/delete actions.
 
-5. **PTY Attach Handler** - Implement actual PTY relay to enable agent interaction.
+5. ~~**PTY Attach Handler**~~ - ✅ Implemented. Full PTY relay via WebSocket control channel + web terminal via xterm.js.
 
-These five items address the most critical gaps between "system that compiles" and "system that's usable for agent lifecycle management."
+**Updated priorities** (see `.design/toward-mvp.md` for full roadmap):
+
+1. **Client real-time state management (M8)** — SSE client and StateManager so the web UI reflects agent state changes without manual refresh. Server-side SSE/NATS infrastructure (M7) is complete.
+
+2. **Taskless refactor** — Remove the task requirement from `scion start` to enable interactive-first agent workflows.
+
+3. **Agent creation wizard (M10)** — Web UI for creating agents, completing the full lifecycle in the browser.
 
 ---
 

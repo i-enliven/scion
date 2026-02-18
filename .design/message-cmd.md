@@ -1,15 +1,27 @@
 # Message command
 
-This would be a new command
+## Status: Implemented
+
+**Implementation:** `cmd/message.go` (216 lines)
+
+---
+
+## Design
 
 `scion message` (msg for short)
 
-That would send a message to harnesses which enqueues new messages to an agent.
+Sends a message to harnesses which enqueues new messages to an agent.
 
-This would require tmux and use the 'send-keys' command of tmux combined with the 'exec' command of the runtime
+Uses tmux `send-keys` command combined with the `exec` command of the runtime. Sends the message plus the "Enter" special tmux key.
 
-It would send the message plus the "Enter" special tmux key
+### Flags
 
-There is an optional -i (--interrupt) flag that first uses send-keys to send either 'Escape' or 'C-c' depending on the harness (this is harness specific, 'C-c' for generic)
+- `-i` / `--interrupt` — First uses send-keys to send either 'Escape' or 'C-c' depending on the harness (harness-specific, 'C-c' for generic)
+- `-b` / `--broadcast` — Sends the message to all running agents in the grove
+- `--all` — Cross-grove broadcast to all running agents
 
-There should be a --b or --broadcast flag, which sends the message to all agents who are running.
+### Implementation Notes
+
+- Supports both Hub-based and local runtime messaging
+- Single agent message send and broadcast modes
+- Alias: `msg`

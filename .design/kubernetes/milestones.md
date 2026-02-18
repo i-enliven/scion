@@ -1,66 +1,51 @@
 # Kubernetes Support Milestones
 
-This document outlines the incremental milestones required to evolve the Scion Kubernetes runtime from its current "experimental/broken" state to a fully functional, production-ready environment.
+*Updated: 2026-02-18*
+
+This document outlines the incremental milestones required to evolve the Scion Kubernetes runtime to a fully functional, production-ready environment.
 
 Each milestone is designed to be independently testable ("QAable") and builds upon the previous one.
 
-## Milestone 1: Basic Runtime Configuration & Connectivity
+> **Implementation note:** The K8s runtime (`pkg/runtime/k8s_runtime.go`) has been substantially
+> implemented (1183 lines, 17 methods). Many items originally scoped in M1-M4 are now complete.
+> Status annotations below reflect the current code state as of 2026-02-18.
 
-**Goal:** Ensure the Kubernetes runtime honors the basic `run` configuration provided by the CLI. Currently, the runtime ignores `Env`, `Image`, and other critical parameters.
+## Milestone 1: Basic Runtime Configuration & Connectivity — ✅ Complete
+
+**Goal:** Ensure the Kubernetes runtime honors the basic `run` configuration provided by the CLI.
 
 See detailed design in `m1-design.md`.
 
-**Current Flaws Addressed:**
-- **Flaw #2:** Missing Configuration Propagation (`Env` variables ignored).
-- **Flaw #3:** Credential Propagation (Partially - via Env vars).
-
 **Tasks:**
-1.  **Environment Propagation:** Modify `KubernetesRuntime.Run` and the `SandboxClaim` construction logic to serialize the `runCfg.Env` map (which includes API keys discovered by the harness) into the `SandboxClaim` (or underlying Pod spec).
-    *   *Interim Solution:* If `SandboxClaim` CRD doesn't support generic Env, modify the `Client` to patch the created Pod or switch to managing `Pod` resources directly for this milestone.
-2.  **Command Propagation:** Ensure the command string from the Harness (e.g., `gemini-cli run ...`) is actually executed by the remote container, overriding the default entrypoint if necessary.
-3.  **Basic Auth Injection:** As a temporary measure, inject `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` as plain Environment Variables to ensure the harness *can* run if it had the right files.
-
-**Verification (Manual QA):**
-- Run: `scion run --runtime kubernetes --env TEST_VAR=foo --image alpine "echo $TEST_VAR"`
-- Success: Agent starts, logs show "foo", and status becomes "completed".
+1.  ✅ **Environment Propagation:** `KubernetesRuntime.Run` serializes `runCfg.Env` into the Pod spec. Manages Pods directly (not SandboxClaim CRD).
+2.  ✅ **Command Propagation:** Harness command is executed by the container, overriding the default entrypoint.
+3.  ✅ **Basic Auth Injection:** API keys injected as environment variables into the Pod spec.
 
 ---
 
-## Milestone 2: Identity & Context Projection (The "Snapshot" Fix)
+## Milestone 2: Identity & Context Projection (The "Snapshot" Fix) — ✅ Complete
 
 **Goal:** Enable standard Harnesses (Gemini/Claude) to function by ensuring their required configuration files and home directory context are present in the remote container.
 
-**Current Flaws Addressed:**
-- **Flaw #1:** Incomplete Context Sync (HomeDir missing).
-- **Flaw #5:** Hardcoded Paths.
-- **Flaw #4:** Synchronous Sync Issues (Race conditions).
-
 **Tasks:**
-1.  **Home Directory Sync:** Extend `syncContext` to support multiple sources. It must explicitly `tar` relevant files from the local `AgentHome` (e.g., `.bashrc`, `.config/gcloud`, harness-specific settings) and stream them to the remote container's `$HOME`.
-2.  **Wait-for-Init Logic:** Implement a "blocking start" mechanism. The main agent process (the Harness command) should not start until the context sync is complete.
-    *   *Implementation Idea:* Override the container command to `tail -f /dev/null` initially, perform the `kubectl exec ... tar` upload, and *then* `kubectl exec` the actual harness command.
-3.  **Workspace Path Configuration:** Respect `runCfg.Workspace` mapping instead of hardcoding `/workspace`.
-
-**Verification (Manual QA):**
-- Run: `scion start <agent-name>` (where agent uses a harness requiring a config file, e.g., `gemini-cli`).
-- Success: The harness starts successfully without "config not found" errors.
+1.  ✅ **Home Directory Sync:** Tar-based upload of agent home directory to container. Mutagen live sync also available for home directory.
+2.  ✅ **Wait-for-Init Logic:** Container starts with `tail -f /dev/null`, context sync is performed, then harness command is exec'd.
+3.  ✅ **Workspace Path Configuration:** Uses configured workspace path, not hardcoded.
 
 ---
 
 ## Milestone 3: SCM Integration (Git Clone on Start)
 
-**Goal:** Transition from "uploading local workspace" to "cloning from source" for the project code, aligning with `@.design/kubernetes/scm.md`.
+**Goal:** Transition from "uploading local workspace" to "cloning from source" for the project code.
 
-**Current Flaws Addressed:**
-- **Kubernetes Challenge:** No Shared Filesystem.
-- **Scalability:** Avoiding large tarball uploads for large repos.
+**Status:** Partially addressed. Workspace sync (tar snapshot + Mutagen live sync) is implemented, but git-clone-based init container approach is NOT yet implemented.
 
 **Tasks:**
-1.  **Repository Detection:** Implement logic in `cmd/start.go` to detect the Git remote URL of the current grove.
-2.  **Init Container Injection:**
-    *   *Design Change:* Switch from `SandboxClaim` to `Pod` (or update `Sandbox` definition) to support an `initContainer`.
-    *   Configure the init container to `git clone` the detected URL into an `EmptyDir` volume mounted at `/workspace`.
-3.  **Credential Management (Basic):** Implement a method to copy the local user's Git credentials (PAT or SSH key) into a Kubernetes Secret and mount it for the Init Container.
+1.  [ ] **Repository Detection:** Detect Git remote URL of the current grove for clone-based bootstrap.
+2.  [ ] **Init Container Injection:** Configure init container to `git clone` into workspace volume.
+3.  [ ] **Credential Management (Basic):** Copy local Git credentials into a Kubernetes Secret for init container.
+
+**Current workaround:** Workspace tar snapshot sync (`syncWorkspace`) uploads the local workspace to the container. Mutagen-based live sync keeps it up to date during the session.
 
 **Verification (Manual QA):**
 - Run: `scion start --runtime kubernetes` in a git repo.
@@ -68,26 +53,14 @@ See detailed design in `m1-design.md`.
 
 ---
 
-## Milestone 4: Interactive Synchronization
+## Milestone 4: Interactive Synchronization — ✅ Complete
 
 **Goal:** Restore the "local development" feel by allowing users to push/pull changes between their local machine and the remote agent.
 
-**Current Flaws Addressed:**
-- **Usability:** "I changed a file locally, but the remote agent doesn't see it."
-
 **Tasks:**
-1.  **Sync-To Command:** Implement `scion sync to <agent-name>`:
-    *   Tars local workspace changes (diff against last sync or git status).
-    *   Streams to remote `/workspace`.
-2.  **Sync-From Command:** Implement `scion sync from <agent-name>`:
-    *   Tars remote `/workspace` (or specific changed files).
-    *   Unpacks to local directory.
-3.  **Watch Mode (Optional):** A simple file watcher that triggers `sync to` on change.
-
-**Verification (Manual QA):**
-1.  Modify a file locally.
-2.  Run `scion sync to <agent>`.
-3.  Verify file change in remote Pod.
+1.  ✅ **Sync-To:** Tar-based workspace sync pushes local changes to remote `/workspace`.
+2.  ✅ **Sync-From:** Tar-based sync pulls remote workspace changes to local directory.
+3.  ✅ **Live Sync:** Mutagen-based bidirectional live sync for both workspace and home directory.
 
 ---
 
@@ -95,14 +68,12 @@ See detailed design in `m1-design.md`.
 
 **Goal:** Move from "Dev/Test" quality to "Production" quality, securing secrets and handling lifecycle events robustly.
 
-**Current Flaws Addressed:**
-- **Flaw #3:** Credential Propagation (Insecure Env Vars).
-- **Flaw #4:** Race conditions.
-
 **Tasks:**
-1.  **Secret Management:** Replace Environment Variable injection (Milestone 1) with proper Kubernetes Secrets for API keys and Auth tokens.
-2.  **Status Reconciliation:** Update `scion list` to accurately reflect K8s Pod status (Pending, Running, CrashLoopBackOff) rather than just local state.
-3.  **Cleanup:** Ensure `scion delete` removes Secrets, ConfigMaps, and PVCs associated with the agent.
+1.  [ ] **Secret Management:** Replace environment variable injection with proper Kubernetes Secrets for API keys and auth tokens.
+2.  [ ] **Status Reconciliation:** Update `scion list` to accurately reflect K8s Pod status (Pending, Running, CrashLoopBackOff) rather than just local state.
+3.  [ ] **Cleanup:** Ensure `scion delete` removes Secrets, ConfigMaps, and PVCs associated with the agent.
+4.  [ ] **SecurityContext:** Set `FSGroup` and other pod security context fields for proper file permissions.
+5.  [ ] **Resource Requests/Limits:** CPU and memory requests/limits are implemented but need validation and tuning guidance.
 
 **Verification (Manual QA):**
 - Inspect Pod: `kubectl get pod <agent> -o yaml`. Verify no API keys are visible in `spec.containers.env`.

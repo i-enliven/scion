@@ -1,8 +1,9 @@
 # Template Import: Research Report & Design Document
 
-## Status: Draft
+## Status: Phase 1 Complete
 ## Author: Agent (c-template-import)
 ## Date: 2026-02-13
+## Updated: 2026-02-18
 
 ---
 
@@ -439,15 +440,16 @@ Model names are stored as-is in `scion-agent.yaml`. The harness runtime handles 
 
 ## 6. Implementation Phases
 
-### Phase 1: Core Import (MVP)
-- [ ] `Importer` interface and `ImportedAgent` type
-- [ ] Claude Code importer: parse front matter + body, detect signature
-- [ ] Gemini CLI importer: parse front matter + body, detect signature
-- [ ] Auto-detection logic (path-based + content-based)
-- [ ] Template writer: produce scion template directory structure
-- [ ] CLI command: `scion template import`
+### Phase 1: Core Import (MVP) ✅ Complete
+- [x] `Importer` interface and `ImportedAgent` type
+- [x] Claude Code importer: parse front matter + body, detect signature
+- [x] Gemini CLI importer: parse front matter + body, detect signature
+- [x] Auto-detection logic (path-based + content-based)
+- [x] Template writer: produce scion template directory structure
+- [x] CLI command: `scion template import` (`cmd/template_import.go`, 301 lines)
+- [x] Map `name`, `description`, `model`, `tools`, system prompt
+- [x] Single file and directory import, auto-discovery, dry-run mode, force overwrite, custom name override
 - [ ] Tests: unit tests for parsing, detection, and template output
-- [ ] Map `name`, `description`, `model`, `tools`, system prompt
 
 ### Phase 2: Enhanced Mapping
 - [ ] MCP server configuration import

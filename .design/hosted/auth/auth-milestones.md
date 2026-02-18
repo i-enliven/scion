@@ -2,7 +2,7 @@
 
 This document tracks the phased implementation of Scion authentication.
 
-*Last updated: 2026-01-31*
+*Last updated: 2026-02-18*
 
 ---
 
@@ -57,9 +57,11 @@ This document tracks the phased implementation of Scion authentication.
 
 ## Phase 3: API Keys
 
-- [ ] API key generation endpoint
-- [ ] API key validation middleware
-- [ ] Key management UI in dashboard
+- [x] API key generation endpoint (`pkg/hub/apikey.go` — 199 lines)
+- [x] API key validation middleware (format check → hash lookup → revocation check → expiration check)
+- [x] API key store interface + SQLite implementation (`pkg/store/`)
+- [x] Key prefix system, SHA256 hashing, expiration, revocation, last-used tracking, scope support
+- [ ] Key management UI in dashboard (web frontend M14)
 - [ ] `scion hub auth set-key` command
 
 ---
