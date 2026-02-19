@@ -1241,3 +1241,98 @@ Each hook event emits a log record via `otelslog` with the span name as the log 
 **Test Criteria:**
 - Web UI "Session" tab displays correct token usage for a completed session.
 - Agent list displays accurate "Total Tokens" or "Last Active" metrics.
+
+---
+
+## 13. QA Readiness Gaps
+
+This section tracks the remaining implementation gaps that must be resolved before
+a full end-to-end QA test of the telemetry system can be executed. Last reviewed
+2026-02-19.
+
+### 13.1 Settings → Container Environment Bridge
+
+**Status:** Not implemented
+**Blocks:** QA of settings-driven telemetry configuration
+
+The settings schema (section 10.3) defines a `telemetry` block that merges across
+global, grove, template, and agent scopes. The sciontool telemetry pipeline reads
+its configuration from `SCION_TELEMETRY_*` and `SCION_OTEL_*` environment variables
+via `telemetry.LoadConfig()`. However, there is no code that converts the resolved
+telemetry settings into environment variables for injection into agent containers.
+
+**Current state:**
+- `pkg/agent/run.go` `Start()` assembles `opts.Env` with identity vars
+  (`SCION_AGENT_NAME`, `SCION_HUB_ENDPOINT`, etc.) but has no telemetry awareness.
+- `pkg/agent/provision.go` loads settings and merges scion-config but never reads
+  `V1TelemetryConfig` or `ScionConfig.Telemetry`.
+- Telemetry only works if env vars are set manually on the host, via Hub injection,
+  or in the harness config `env` map.
+
+**Required work:**
+- [ ] In `pkg/agent/run.go`, after hub endpoint injection (~line 251), read the
+  resolved telemetry config from settings and/or the merged `ScionConfig.Telemetry`
+  and emit the corresponding `SCION_TELEMETRY_*` / `SCION_OTEL_*` env vars into
+  `opts.Env`. Respect last-write-wins: values already present in `opts.Env` (from
+  harness config, profile, or explicit user env) should not be overwritten.
+- [ ] Add tests in `pkg/agent/run_test.go` verifying that telemetry settings
+  produce the correct container env vars.
+
+### 13.2 Hub Metrics Reporting (Milestone 3)
+
+**Status:** Not started
+**Blocks:** QA of metrics persistence and Hub-side visibility
+
+The sciontool `TelemetryHandler` records OTel metrics on hook events, but these
+metrics are only forwarded to the cloud OTLP backend. There is no path for
+reporting session-level metric summaries to the Scion Hub.
+
+**Current state:**
+- `StatusUpdate` struct (`pkg/sciontool/hub/client.go`) has status and session
+  fields but no metrics payload.
+- Heartbeat loop sends status only; no aggregated metrics.
+- No Hub API endpoint to receive metrics.
+- No database table for `agent_session_metrics`.
+
+**Required work:**
+- [ ] **Aggregation engine**: In-memory accumulation of session stats (token
+  counts, tool usage) in sciontool, derived from `TelemetryHandler` counters or
+  session file parsing.
+- [ ] **Hub protocol**: Extend `StatusUpdate` (or define a new `MetricsPayload`)
+  to carry session metrics. Send on `session-end` or as part of heartbeat.
+- [ ] **Hub database**: Schema migration adding `agent_session_metrics` table with
+  columns for token counts, tool stats, model, duration, and timestamps.
+- [ ] **Hub ingestion**: API handler to receive metrics payloads, validate, and
+  persist to the database.
+
+### 13.3 Hub Metrics API & Web UI (Milestone 4)
+
+**Status:** Not started
+**Blocks:** QA of metrics visualization
+
+No API endpoints or UI components exist for retrieving or displaying telemetry
+data stored in the Hub.
+
+**Required work:**
+- [ ] **Hub API**: `GET /api/v1/agents/{id}/metrics/summary` and
+  `GET /api/v1/metrics/session/{id}` endpoints.
+- [ ] **Web UI**: Session detail view showing token usage; agent list view showing
+  aggregate activity stats.
+
+### 13.4 QA Test Matrix
+
+The following matrix maps test scenarios to their blocking gaps:
+
+| Test Scenario | Status | Blocker |
+|:---|:---|:---|
+| Sciontool pipeline: receive → filter → export to cloud | Ready | — |
+| Hook events produce correct spans and metrics | Ready | — |
+| Privacy filtering (redact/hash/exclude) | Ready | — |
+| Correlated logs emitted with trace context | Ready | — |
+| Gemini session file parsing on session-end | Ready | — |
+| Settings.yaml telemetry merges across scopes (unit) | Ready | — |
+| Settings.yaml telemetry flows into agent container | Blocked | §13.1 |
+| Telemetry disabled at grove scope disables agent collection | Blocked | §13.1 |
+| Session metrics reported to Hub on session-end | Blocked | §13.2 |
+| Hub stores and returns metrics via API | Blocked | §13.2, §13.3 |
+| Web UI displays token usage for a session | Blocked | §13.2, §13.3 |
