@@ -289,6 +289,10 @@ func (m *AgentManager) Start(ctx context.Context, opts api.StartOptions) (*api.A
 	} else {
 		opts.Env["SCION_TEMPLATE_NAME"] = "custom"
 	}
+	// Full template reference (cache path, URI, or name) for debugging
+	if opts.Template != "" {
+		opts.Env["SCION_TEMPLATE"] = opts.Template
+	}
 	if _, ok := opts.Env["SCION_BROKER_NAME"]; !ok {
 		opts.Env["SCION_BROKER_NAME"] = "local"
 	}

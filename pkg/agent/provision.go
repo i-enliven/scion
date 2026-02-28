@@ -515,11 +515,17 @@ func ProvisionAgent(ctx context.Context, agentName string, templateName string, 
 		finalScionCfg = &api.ScionConfig{}
 	}
 
-	// Create the Info object which will go into agent-info.json
+	// Create the Info object which will go into agent-info.json.
+	// Use the resolved template name from the chain (human-friendly) rather
+	// than the raw templateName which may be a cache path or remote URI.
+	displayTemplateName := templateName
+	if len(chain) > 0 {
+		displayTemplateName = chain[0].Name
+	}
 	info := &api.AgentInfo{
 		Grove:         groveName,
 		Name:          agentName,
-		Template:      templateName,
+		Template:      displayTemplateName,
 		HarnessConfig: harnessConfigName,
 		Profile:       profileName,
 	}
