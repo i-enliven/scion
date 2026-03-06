@@ -2,6 +2,7 @@
 .scion/
 # binaries
 /build/
+/.build/
 /scion
 scion-agent
 

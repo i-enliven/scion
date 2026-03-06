@@ -578,13 +578,13 @@ func TestBuildCommonRunArgs(t *testing.T) {
 
 		}
 
-func TestDevSciontoolMount(t *testing.T) {
-	// When SCION_DEV_SCIONTOOL is set to a valid file path, the binary should
-	// be bind-mounted over /usr/local/bin/sciontool in the container.
-	tmpBin := filepath.Join(t.TempDir(), "sciontool-linux")
-	os.WriteFile(tmpBin, []byte("fake-binary"), 0755)
+func TestDevBinariesMount(t *testing.T) {
+	// When SCION_DEV_BINARIES is set to a valid directory, it should
+	// be bind-mounted to /opt/scion/bin in the container.
+	tmpDir := t.TempDir()
+	os.WriteFile(filepath.Join(tmpDir, "sciontool"), []byte("fake"), 0755)
 
-	t.Setenv("SCION_DEV_SCIONTOOL", tmpBin)
+	t.Setenv("SCION_DEV_BINARIES", tmpDir)
 
 	args, err := buildCommonRunArgs(RunConfig{
 		Harness:      &harness.GeminiCLI{},
@@ -597,15 +597,15 @@ func TestDevSciontoolMount(t *testing.T) {
 	}
 
 	argStr := strings.Join(args, " ")
-	expected := fmt.Sprintf("-v %s:/usr/local/bin/sciontool:ro", tmpBin)
+	expected := fmt.Sprintf("-v %s:/opt/scion/bin:ro", tmpDir)
 	if !strings.Contains(argStr, expected) {
-		t.Errorf("expected dev sciontool mount %q in args, got: %s", expected, argStr)
+		t.Errorf("expected dev binaries mount %q in args, got: %s", expected, argStr)
 	}
 }
 
-func TestDevSciontoolMountNotSetOrMissing(t *testing.T) {
-	// When SCION_DEV_SCIONTOOL is not set, no mount should appear.
-	t.Setenv("SCION_DEV_SCIONTOOL", "")
+func TestDevBinariesMountNotSetOrInvalid(t *testing.T) {
+	// When SCION_DEV_BINARIES is not set, no mount should appear.
+	t.Setenv("SCION_DEV_BINARIES", "")
 
 	args, err := buildCommonRunArgs(RunConfig{
 		Harness:      &harness.GeminiCLI{},
@@ -618,12 +618,12 @@ func TestDevSciontoolMountNotSetOrMissing(t *testing.T) {
 	}
 
 	argStr := strings.Join(args, " ")
-	if strings.Contains(argStr, "/usr/local/bin/sciontool") {
-		t.Errorf("expected no sciontool mount when env is empty, got: %s", argStr)
+	if strings.Contains(argStr, "/opt/scion/bin") {
+		t.Errorf("expected no dev binaries mount when env is empty, got: %s", argStr)
 	}
 
-	// When set to a non-existent file, no mount should appear.
-	t.Setenv("SCION_DEV_SCIONTOOL", "/nonexistent/path/sciontool")
+	// When set to a non-existent path, no mount should appear.
+	t.Setenv("SCION_DEV_BINARIES", "/nonexistent/path")
 
 	args, err = buildCommonRunArgs(RunConfig{
 		Harness:      &harness.GeminiCLI{},
@@ -636,8 +636,28 @@ func TestDevSciontoolMountNotSetOrMissing(t *testing.T) {
 	}
 
 	argStr = strings.Join(args, " ")
-	if strings.Contains(argStr, "/usr/local/bin/sciontool") {
-		t.Errorf("expected no sciontool mount for missing file, got: %s", argStr)
+	if strings.Contains(argStr, "/opt/scion/bin") {
+		t.Errorf("expected no dev binaries mount for missing path, got: %s", argStr)
+	}
+
+	// When set to a file (not a directory), no mount should appear.
+	tmpFile := filepath.Join(t.TempDir(), "not-a-dir")
+	os.WriteFile(tmpFile, []byte("x"), 0644)
+	t.Setenv("SCION_DEV_BINARIES", tmpFile)
+
+	args, err = buildCommonRunArgs(RunConfig{
+		Harness:      &harness.GeminiCLI{},
+		Name:         "test-agent",
+		UnixUsername: "scion",
+		Image:        "scion-agent:latest",
+	})
+	if err != nil {
+		t.Fatalf("buildCommonRunArgs failed: %v", err)
+	}
+
+	argStr = strings.Join(args, " ")
+	if strings.Contains(argStr, "/opt/scion/bin") {
+		t.Errorf("expected no dev binaries mount for file path, got: %s", argStr)
 	}
 }
 

@@ -264,13 +264,14 @@ func buildCommonRunArgs(config RunConfig) ([]string, error) {
 		}
 	}
 
-	// Dev-mode sciontool override: if SCION_DEV_SCIONTOOL points to a local
-	// binary, bind-mount it over /usr/local/bin/sciontool in the container.
-	// This allows rapid iteration on sciontool without rebuilding images.
-	if devSciontool := os.Getenv("SCION_DEV_SCIONTOOL"); devSciontool != "" {
-		if abs, err := filepath.Abs(devSciontool); err == nil {
-			if _, err := os.Stat(abs); err == nil {
-				registerMount(abs, "/usr/local/bin/sciontool", true, true)
+	// Dev-mode binary override: if SCION_DEV_BINARIES points to a local
+	// directory containing scion/sciontool binaries, bind-mount it to
+	// /opt/scion/bin which has highest PATH priority in the container.
+	// This allows rapid iteration without rebuilding images.
+	if devBinDir := os.Getenv("SCION_DEV_BINARIES"); devBinDir != "" {
+		if abs, err := filepath.Abs(devBinDir); err == nil {
+			if info, err := os.Stat(abs); err == nil && info.IsDir() {
+				registerMount(abs, "/opt/scion/bin", true, true)
 			}
 		}
 	}

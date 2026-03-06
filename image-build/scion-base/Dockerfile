@@ -60,6 +60,12 @@ USER root
 COPY --from=builder /usr/local/bin/scion /usr/local/bin/scion
 COPY --from=builder /usr/local/bin/sciontool /usr/local/bin/sciontool
 
+# Create dev-override bin directory at highest PATH priority.
+# When SCION_DEV_BINARIES is set, this directory is bind-mounted with
+# locally-built binaries, allowing rapid iteration without image rebuilds.
+RUN mkdir -p /opt/scion/bin
+ENV PATH="/opt/scion/bin:${PATH}"
+
 # Create scion user with passwordless sudo
 RUN useradd -m -s /bin/zsh -u 1000 scion && \
     echo "scion ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/scion && \
