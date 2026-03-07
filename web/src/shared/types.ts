@@ -241,8 +241,12 @@ export interface Agent {
   taskSummary?: string;
   message?: string;
   lastSeen?: string;
-  createdAt: string;
-  updatedAt: string;
+  // Backend sends "created"/"updated"; legacy frontend code uses "createdAt"/"updatedAt".
+  // Accept both so existing pages and new API responses both work.
+  created?: string;
+  updated?: string;
+  createdAt?: string;
+  updatedAt?: string;
   harnessConfig?: string;
   harnessAuth?: string;
   runtimeBrokerId?: string;

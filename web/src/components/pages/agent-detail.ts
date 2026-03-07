@@ -791,7 +791,7 @@ export class ScionPageAgentDetail extends LitElement {
             ? html`
                 <a href="/agents/${this.agentId}/terminal" style="text-decoration: none;">
                   <sl-button
-                    variant="default"
+                    variant="primary"
                     size="small"
                     ?disabled=${!isTerminalAvailable(agent)}
                   >
@@ -996,7 +996,8 @@ export class ScionPageAgentDetail extends LitElement {
   }
 
   private renderConnectivityCard(agent: Agent) {
-    const lastSeenStr = agent.lastSeen || agent.updatedAt;
+    const lastSeenStr =
+      agent.lastSeen || agent.updated || agent.updatedAt || agent.created || agent.createdAt || '';
     return html`
       <div class="card">
         <h3 class="card-title">Connectivity</h3>
@@ -1067,7 +1068,9 @@ export class ScionPageAgentDetail extends LitElement {
             : ''}
           <div class="info-item">
             <span class="info-label">Created</span>
-            <span class="info-value">${this.formatDate(agent.createdAt)}</span>
+            <span class="info-value"
+              >${this.formatDate(agent.created || agent.createdAt || '')}</span
+            >
           </div>
           ${agent.appliedConfig?.creatorName
             ? html`
@@ -1141,6 +1144,7 @@ export class ScionPageAgentDetail extends LitElement {
   private renderRuntimeCard(agent: Agent, inline: AgentInlineConfig | undefined) {
     const image = agent.image || inline?.image || agent.appliedConfig?.image;
     const branch = inline?.branch;
+    const profile = agent.appliedConfig?.profile;
 
     return html`
       <div class="card">
@@ -1167,6 +1171,14 @@ export class ScionPageAgentDetail extends LitElement {
                 <div class="info-item">
                   <span class="info-label">Runtime Type</span>
                   <span class="info-value">${agent.runtime}</span>
+                </div>
+              `
+            : ''}
+          ${profile
+            ? html`
+                <div class="info-item">
+                  <span class="info-label">Profile</span>
+                  <span class="info-value">${profile}</span>
                 </div>
               `
             : ''}
