@@ -51,6 +51,10 @@ Scion determines which harness-config to use in this order:
 
 ## Managing Templates
 
+### Template Bootstrapping
+
+Local agent templates are automatically bootstrapped into the Hub database during server startup. This ensures that all defined templates are consistently available across the system, allowing for seamless deployment without manual importing steps.
+
 ### Structure of a Template
 A typical template directory looks like this:
 

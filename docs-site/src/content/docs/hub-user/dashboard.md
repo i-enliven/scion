@@ -12,6 +12,11 @@ The dashboard is organized into several key areas:
 ### Dashboard Home
 The landing page provides an overview of your active agents across all groves and the status of your runtime brokers.
 
+### Notifications & Alerts
+The dashboard features an integrated notification framework with real-time SSE delivery. 
+- **Notification Tray**: Provides agent-scoped filtering for status events, accessible directly from the top navigation.
+- **Browser Push Notifications**: Opt-in native browser push notifications ensure you receive alerts even when the dashboard is in the background. Default triggers include `stalled` and `error` states, as well as requests for user input.
+
 ### Groves
 View and manage your registered groves.
 - **Create/Register Grove**: Create a Hub-Native workspace directly on the Hub, or connect a new remote Git repository.

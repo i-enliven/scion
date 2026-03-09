@@ -8,7 +8,7 @@ The Scion CLI is the primary interface for managing agents, groves, and server c
 
 These flags are available on all commands:
 
-- `-g, --grove <path>`: Path to a `.scion` grove directory.
+- `-g, --grove <string>`: Grove identifier: path, slug (with Hub), or git URL (with Hub).
 - `--global`: Use the global grove (equivalent to `--grove global`).
 - `-p, --profile <name>`: Configuration profile to use.
 - `--format <string>`: Output format (`json` or `plain`).
@@ -35,6 +35,11 @@ Starts a new agent or resumes an existing one.
     - `-a, --attach`: Attach to the agent immediately after starting.
     - `--no-auth`: Disable authentication propagation.
     - `-d, --detached`: Run in detached mode (default true).
+    - `--config <path>`: Path to inline agent config file (YAML/JSON) for Just-In-Time (JIT) overrides, or `-` for stdin.
+    - `--harness-config <string>`: Named harness configuration to use.
+    - `--harness-auth <string>`: Override auth method for the harness (e.g., `api-key`, `vertex-ai`, `auth-file`).
+    - `--broker <string>`: Preferred runtime broker ID or name for execution.
+    - `--notify`: Get notified via the browser or system when the spawned agent reaches a terminal state.
 
 ### `scion stop`
 
@@ -170,6 +175,7 @@ Manages connection to and interaction with a Scion Hub.
 
 - `scion hub status`: Show the current Hub connection status.
 - `scion hub auth login`: Authenticate against the Hub (opens a browser).
+- `scion hub notifications`: Retrieve a list of recent system notifications and agent alerts.
 - `scion hub link`: Link the current local grove to the Hub.
 - `scion hub unlink`: Unlink the current grove from the Hub locally.
 - `scion hub groves`: List all groves registered on the Hub.
