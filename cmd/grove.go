@@ -64,8 +64,16 @@ With --global, it initializes in the user's home folder.`,
 				fmt.Println("Initializing global scion directory...")
 			}
 
-			// Resolve image registry: flag > prompt > skip
+			// Resolve image registry: flag > existing settings > prompt > skip
 			registryValue := initImageRegistry
+			if registryValue == "" {
+				// Check if existing global settings already have a registry configured
+				if globalDir, err := config.GetGlobalDir(); err == nil {
+					if vs, err := config.LoadVersionedSettings(globalDir); err == nil {
+						registryValue = vs.ImageRegistry
+					}
+				}
+			}
 			if registryValue == "" && !isJSONOutput() {
 				registryValue = promptImageRegistry()
 			}
