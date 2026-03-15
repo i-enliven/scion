@@ -1837,14 +1837,19 @@ func runHubLink(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check if grove already exists on Hub
-	linked, err := isGroveLinked(ctx, client, groveID)
+	hubGrove, err := getLinkedGrove(ctx, client, groveID)
 	if err != nil {
 		util.Debugf("Error checking grove link status: %v", err)
 	}
 
-	if linked {
+	if hubGrove != nil && hubGrove.Name == groveName {
 		fmt.Printf("Grove '%s' is already linked to the Hub (ID: %s)\n", groveName, groveID)
 	} else {
+		if hubGrove != nil {
+			// Local grove_id points to a different grove on the Hub — stale link
+			fmt.Printf("Warning: local grove '%s' was linked to hub grove '%s' (ID: %s). Re-linking.\n",
+				groveName, hubGrove.Name, groveID)
+		}
 		// Check for existing groves with the same name
 		resp, err := client.Groves().List(ctx, &hubclient.ListGrovesOptions{
 			Name: groveName,
@@ -1873,6 +1878,12 @@ func runHubLink(cmd *cobra.Command, args []string) error {
 				if err := config.UpdateSetting(resolvedPath, "grove_id", selectedID, isGlobal); err != nil {
 					return fmt.Errorf("failed to update local grove_id: %w", err)
 				}
+				// Also update the grove-id marker file for split-storage groves
+				if !isGlobal {
+					if err := config.WriteGroveID(resolvedPath, selectedID); err != nil {
+						util.Debugf("Failed to update grove-id file: %v", err)
+					}
+				}
 				groveID = selectedID
 				fmt.Printf("Linked to existing grove (ID: %s)\n", groveID)
 			case hubsync.GroveChoiceRegisterNew:
@@ -1880,6 +1891,12 @@ func runHubLink(cmd *cobra.Command, args []string) error {
 				groveID = config.GenerateGroveIDForDir(filepath.Dir(resolvedPath))
 				if err := config.UpdateSetting(resolvedPath, "grove_id", groveID, isGlobal); err != nil {
 					return fmt.Errorf("failed to update local grove_id: %w", err)
+				}
+				// Also update the grove-id marker file for split-storage groves
+				if !isGlobal {
+					if err := config.WriteGroveID(resolvedPath, groveID); err != nil {
+						util.Debugf("Failed to update grove-id file: %v", err)
+					}
 				}
 				// Register as new grove
 				if err := registerGroveOnHub(ctx, client, groveID, groveName, resolvedPath, isGlobal); err != nil {
@@ -2175,22 +2192,28 @@ func checkLocalBrokerServer(port int) (*BrokerHealthResponse, error) {
 	return &health, nil
 }
 
-// isGroveLinked checks if the grove is linked to the Hub (has hub.enabled=true and exists on the Hub).
+// isGroveLinked checks if the grove exists on the Hub.
 func isGroveLinked(ctx context.Context, client hubclient.Client, groveID string) (bool, error) {
+	grove, err := getLinkedGrove(ctx, client, groveID)
+	return grove != nil, err
+}
+
+// getLinkedGrove returns the hub grove for the given ID, or nil if not found.
+func getLinkedGrove(ctx context.Context, client hubclient.Client, groveID string) (*hubclient.Grove, error) {
 	if groveID == "" {
-		return false, nil
+		return nil, nil
 	}
 
-	_, err := client.Groves().Get(ctx, groveID)
+	grove, err := client.Groves().Get(ctx, groveID)
 	if err != nil {
 		errStr := err.Error()
 		if containsIgnoreCase(errStr, "404") || containsIgnoreCase(errStr, "not found") {
-			return false, nil
+			return nil, nil
 		}
-		return false, err
+		return nil, err
 	}
 
-	return true, nil
+	return grove, nil
 }
 
 // containsIgnoreCase checks if s contains substr (case-insensitive).
