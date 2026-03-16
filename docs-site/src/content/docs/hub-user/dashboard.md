@@ -22,7 +22,8 @@ View and manage your registered groves.
 - **Create/Register Grove**: Create a Hub-Native workspace directly on the Hub, or connect a new remote Git repository.
 - **Grove Settings**: Centralized configuration interface for managing grove-scoped environment variables and secrets, including "Injection Mode" controls (Always vs. As-Needed).
 - **Workspace Management**: Download individual workspace files or generate ZIP archives of entire groves directly from the UI.
-- **Agent List**: See all agents belonging to the grove.
+- **Shared Directory Management**: View and manage grove shared directories directly from the Web UI (see [Grove Shared Directories](/scion/advanced-local/workspace/#5-grove-shared-directories)).
+- **Agent List**: See all agents belonging to the grove, with card/list view toggle for flexible display.
 
 ### Agents
 Detailed view for individual agents, featuring a high-density tabbed layout and improved breadcrumb navigation with a dedicated back button.
@@ -32,7 +33,7 @@ Detailed view for individual agents, featuring a high-density tabbed layout and 
 - **Messages Tab**: A dedicated tab for viewing structured messages sent to and from the agent.
 - **Configuration Tab**: Dedicated tab for viewing the applied configuration of the agent, featuring a new telemetry configuration card.
 - **Debug Panel**: A full-height panel providing a real-time stream of SSE events and internal state transitions for advanced troubleshooting and observability.
-- **Terminal**: Interactive terminal access to the agent's workspace, featuring built-in Tmux support with a mouse toggle (`C-b m`) and a dedicated terminal toolbar.
+- **Terminal**: Interactive terminal access to the agent's workspace, featuring built-in Tmux support with a mouse toggle (`C-b m`), window switching controls (agent/shell), and a dedicated terminal toolbar.
 - **Lifecycle Control**: Start, stop, restart, or delete agents from the UI. Includes bulk operations like the "Stop All" button for efficient bulk shutdown of all agents within a grove.
 
 ### Runtime Brokers

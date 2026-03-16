@@ -32,5 +32,14 @@ A helper utility bundled with Scion that is injected into agent containers to pr
 ### Template
 A versioned blueprint for an agent, defining its base image, system prompt, tools, and initial state.
 
+### Grove ID
+A unique identifier for a grove. Git-backed groves use deterministic **UUID v5** identifiers derived from the normalized git URL. Hub-native groves use random **UUID v4** identifiers.
+
+### Plugin
+An extension module built on `hashicorp/go-plugin` that provides additional capabilities (e.g., message broker or agent harness implementations) without modifying the Scion core.
+
+### Shared Directory
+A persistent, mutable storage volume shared between agents within a single grove. Backed by host filesystem directories (local) or Kubernetes PersistentVolumeClaims (K8s).
+
 ### Workspace
-The working directory mounted into an agent container, typically managed as a Git worktree to ensure isolation from other agents.
+The working directory mounted into an agent container, typically managed as a Git worktree (local mode) or provisioned via `git init` + `git fetch` (Hub mode) to ensure isolation from other agents.

@@ -90,7 +90,7 @@ Hub-Native groves allow you to create project workspaces directly through the Hu
 - You can directly download individual workspace files or generate ZIP archives of entire groves using the Hub API or Web Dashboard, making it easy to export your data.
 
 ### Git Groves (clone-based, Hub-managed)
-Groves created from a remote git repository URL use **clone-based provisioning**: the agent's container clones the repository over HTTPS at startup.
+Groves created from a remote git repository URL use **clone-based provisioning**: the agent's workspace is initialized from the repository at startup.
 
 ```bash
 # Create a git grove from a URL (Hub-managed)
@@ -101,8 +101,12 @@ scion hub grove create https://github.com/org/repo.git
 
 1. The Hub stores the git remote URL and default branch as grove metadata.
 2. When an agent starts, the Runtime Broker injects `SCION_GIT_CLONE_URL`, `SCION_GIT_BRANCH`, and `SCION_GIT_DEPTH` as environment variables.
-3. The `sciontool init` process inside the container clones the repo into `/workspace` before the harness starts.
+3. The `sciontool init` process inside the container uses a `git init` + `git fetch` strategy to provision the workspace into `/workspace`. This approach handles workspaces that may already contain `.scion` metadata or `.scion-volumes` directories, and properly clears stale artifacts before initialization.
 4. A feature branch `scion/<agent-name>` is created and checked out automatically.
+
+#### Grove ID Format
+
+Git-backed groves use **deterministic UUID v5** identifiers derived from the namespace and the normalized git URL. This ensures the same repository always produces the same grove ID regardless of the access protocol (e.g., `https://` vs `git@`). Hub-native groves use random UUID v4 identifiers.
 
 #### Agent Branch Strategy
 

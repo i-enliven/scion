@@ -69,11 +69,15 @@ Scion will auto-detect the default branch and derive a slug from the repository 
 
 ```
 Grove created:
-  ID:     a1b2c3d4e5f67890
+  ID:     a1b2c3d4-e5f6-5789-abcd-ef0123456789
   Slug:   acme-backend
   Remote: github.com/acme/backend
   Branch: main
 ```
+
+:::note[Grove ID Format]
+Git-backed groves use **deterministic UUID v5** identifiers, derived from the namespace and normalized git URL. This ensures the same repository always produces the same grove ID regardless of protocol (`https://` vs `git@`). Hub-native groves (without a git repository) use random UUID v4 identifiers.
+:::
 
 ### Optional Flags
 
@@ -86,7 +90,7 @@ scion hub grove create https://github.com/acme/backend.git --slug my-backend
 ```
 
 :::tip[Idempotent creation]
-Creating a grove from the same git URL twice won't create a duplicate — the grove ID is derived from the normalized URL, so the command is idempotent.
+Creating a grove from the same git URL twice won't create a duplicate — the grove ID is a deterministic UUID v5 derived from the normalized URL, so the command is idempotent. Git URL user info (e.g., `git@` vs `https://`) is normalized before ID generation, ensuring consistent results across protocols.
 :::
 
 ---
@@ -143,10 +147,14 @@ Agent 'my-agent' starting on broker 'us-west-01'...
 
 ### What happens inside the container
 
-1. The repository is shallow-cloned (`depth=1`) into `/workspace`
+1. The workspace is provisioned using a `git init` + `git fetch` strategy, which can handle workspaces that already contain `.scion` metadata or `.scion-volumes` directories
 2. A feature branch `scion/my-agent` is created and checked out
 3. Git identity is configured automatically
 4. The agent's harness (Claude, Gemini, etc.) starts with the task prompt
+
+:::note[Provisioning Strategy]
+Hub-linked groves use a robust `git init` + `git fetch` approach rather than a standard `git clone`. This allows provisioning into workspaces that may already contain metadata directories, and properly clears stale artifacts before initialization.
+:::
 
 ### Running multiple agents
 

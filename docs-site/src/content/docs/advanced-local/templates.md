@@ -148,3 +148,64 @@ If you mess up a harness-config, you can restore the factory defaults:
 ```bash
 scion harness-config reset gemini
 ```
+
+## Harness Skills
+
+Templates and harness-configs can define **skills** — reusable instruction snippets that are automatically merged and mounted into the appropriate harness-specific directory during agent provisioning.
+
+When an agent is created, Scion collects skills from both the template and the harness-config, then mounts them into the correct location for the harness:
+
+| Harness | Skills Directory |
+| :--- | :--- |
+| Claude | `.claude/skills/` |
+| Gemini | `.gemini/skills/` |
+
+This allows you to package domain-specific expertise (e.g., coding standards, review checklists) as portable skill files that any template can reference.
+
+### Defining Skills in a Template
+
+Add skill files to the template's `home/` directory under the harness-specific path:
+
+```text
+my-template/
+├── scion-agent.yaml
+├── agents.md
+└── home/
+    └── .claude/
+        └── skills/
+            └── code-standards.md
+```
+
+Skills from both the template and the harness-config are merged at provisioning time, so you can define common skills in the harness-config and role-specific skills in individual templates.
+
+## Template Sync (Hub Integration)
+
+When connected to a Hub, you can synchronize grove-level templates between your local configuration and the Hub.
+
+### Syncing Templates
+
+```bash
+# Sync all templates in the current grove to the Hub
+scion templates sync --all
+
+# Check sync status of templates
+scion templates status
+```
+
+The sync command updates existing templates on the Hub without requiring the `--force` flag. When running in co-located mode (hub-broker combo), template sync intelligently bypasses cache for faster iteration.
+
+### Automatic Sync on Hub Startup
+
+Local templates are automatically synchronized to the Hub during server startup. This ensures all defined templates are consistently available across distributed brokers without manual intervention.
+
+### Hub API
+
+Templates can also be synced programmatically via the Hub API:
+
+```
+POST /api/v1/groves/{groveId}/sync-templates
+```
+
+### Externalized Settings for Git-Backed Groves
+
+When templates are synced for git-backed groves, machine-specific settings (paths, credentials) are externalized from the template, while the template definitions themselves remain in-repo to support version control.

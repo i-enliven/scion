@@ -12,6 +12,8 @@ An **Agent** is an isolated process running an LLM + Harness loop (aka Agent) ag
 ### Grove
 A **Grove** (or **Group**) is a project workspace where agents live. It corresponds to a `.scion` directory on the filesystem. It can exist at the project level (generally located at the root of a git repository), or globally in the users home folder.
 
+Every grove has a unique **Grove ID**. Git-backed groves use deterministic **UUID v5** identifiers (derived from the namespace and normalized git URL), ensuring the same repository always maps to the same ID regardless of protocol. Hub-native groves use random **UUID v4** identifiers.
+
 ### Hub
 The **Hub** is the central control plane of a hosted Scion architecture. It acts as the "brain" of the system, coordinating state across multiple users, groves, and runtime brokers.
 - **Identity & Auth**: Manages user identities (via OAuth) and issues tokens for brokers and agents.
@@ -84,10 +86,11 @@ When running without a Hub, Scion uses [Git Worktrees](https://git-scm.com/docs/
 - Agents operate on the same repository history but have independent working directories.
 - Work is merged back to the main branch manually (e.g., `git merge <agent-branch>`).
 
-**Hub mode — HTTPS Clone:**
-When a Hub is enabled, all git-based groves (including locally linked ones) use clone-based provisioning instead of worktrees.
+**Hub mode — Git Init + Fetch:**
+When a Hub is enabled, all git-based groves (including locally linked ones) use a robust `git init` + `git fetch` provisioning strategy instead of worktrees.
 - The broker injects `SCION_GIT_CLONE_URL`, `SCION_GIT_BRANCH`, and a `GITHUB_TOKEN` into the container.
-- `sciontool init` inside the container clones the repo over HTTPS and checks out a `scion/<agent-name>` branch.
+- `sciontool init` inside the container initializes the workspace and fetches the repo over HTTPS, then checks out a `scion/<agent-name>` branch.
+- This approach handles workspaces that already contain `.scion` metadata or `.scion-volumes` directories, clearing stale artifacts before initialization.
 - SSH credentials on the host are not used; a `GITHUB_TOKEN` is required.
 - This strategy is consistent across all broker machines, whether or not the repo exists locally.
 
@@ -106,3 +109,12 @@ Scion automatically tailors an agent's operational context by appending suppleme
 - **`agents-git.md`**: Appended when an agent is running in a Git-backed workspace, providing context on worktree management and branch workflows.
 - **`agents-hub.md`**: Appended when an agent is connected to a Scion Hub, providing instructions for interacting with the Hub API and reporting status.
 These extensions ensure agents understand their specific execution environment without requiring manual configuration in every template.
+
+### Plugin System
+
+Scion supports a plugin architecture built on `hashicorp/go-plugin` for extending system capabilities. Plugins communicate over gRPC and can provide implementations for:
+
+- **Message Broker Plugins**: Custom message delivery backends for agent notifications and structured messaging.
+- **Agent Harness Plugins**: Custom harness implementations that integrate new LLM tools into Scion without modifying the core codebase.
+
+The plugin system is currently in its foundational stage, with reference implementations available for both plugin types.

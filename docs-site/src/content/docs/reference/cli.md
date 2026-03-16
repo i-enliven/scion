@@ -154,6 +154,19 @@ View and modify configuration settings.
 - `set <key> <value>`: Set a configuration value.
 - `validate`: Validate settings files against the schema.
 - `migrate`: Migrate configuration to the latest versioned format.
+- `dir`: Print the path to the active configuration directory.
+
+### `scion cd-config`
+
+Open a new shell in the active Scion configuration directory.
+
+**Usage:** `scion cd-config`
+
+### `scion cd-grove`
+
+Open a new shell in the active grove's workspace directory.
+
+**Usage:** `scion cd-grove`
 
 ### `scion cdw`
 
@@ -183,6 +196,8 @@ Manages agent templates.
 - `delete <name>` (alias `rm`): Delete a template.
 - `import <source>`: Import agent definitions (from Claude/Gemini) as templates.
 - `update-default`: Update default templates from the binary.
+- `sync [--all]`: Sync grove-level templates with the Hub. Use `--all` to sync all templates at once.
+- `status`: Show the sync status of templates relative to the Hub.
 
 ## Hub Integration
 
