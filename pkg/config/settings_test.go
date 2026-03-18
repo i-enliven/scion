@@ -429,6 +429,34 @@ func TestHubMethods(t *testing.T) {
 			wantEnabled:              false,
 			wantExplicitlyDisabled:   true,
 		},
+		{
+			name:                     "hub with endpoint and token implies enabled",
+			hub:                      &HubClientConfig{Endpoint: "https://hub.example.com", Token: "scion_pat_xxx"},
+			wantConfigured:           true,
+			wantEnabled:              true,
+			wantExplicitlyDisabled:   false,
+		},
+		{
+			name:                     "hub with endpoint and apiKey implies enabled",
+			hub:                      &HubClientConfig{Endpoint: "https://hub.example.com", APIKey: "key123"},
+			wantConfigured:           true,
+			wantEnabled:              true,
+			wantExplicitlyDisabled:   false,
+		},
+		{
+			name:                     "hub with token only (no endpoint) not enabled",
+			hub:                      &HubClientConfig{Token: "scion_pat_xxx"},
+			wantConfigured:           false,
+			wantEnabled:              false,
+			wantExplicitlyDisabled:   false,
+		},
+		{
+			name:                     "hub with endpoint, token, and enabled=false stays disabled",
+			hub:                      &HubClientConfig{Endpoint: "https://hub.example.com", Token: "scion_pat_xxx", Enabled: &falseBool},
+			wantConfigured:           true,
+			wantEnabled:              false,
+			wantExplicitlyDisabled:   true,
+		},
 	}
 
 	for _, tt := range tests {

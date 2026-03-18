@@ -493,8 +493,13 @@ func getHubEnabledScope(resolvedPath string, isGlobal bool, mergedSettings *conf
 		}
 	}
 
-	// Neither grove nor global has it set — it's the default (false)
-	result.Scope = "default"
+	// Neither grove nor global has it set explicitly.
+	// Check if implicitly enabled via credentials (token/apiKey + endpoint).
+	if result.Enabled {
+		result.Scope = "implicit"
+	} else {
+		result.Scope = "default"
+	}
 	return result
 }
 
@@ -658,7 +663,9 @@ func runHubStatus(cmd *cobra.Command, args []string) error {
 	if noHub {
 		fmt.Printf("            (overridden by --no-hub flag)\n")
 	}
-	if enabledScope.Inherited {
+	if enabledScope.Scope == "implicit" {
+		fmt.Printf("            (implicit via credentials)\n")
+	} else if enabledScope.Inherited {
 		fmt.Printf("            (inherited from global settings)\n")
 	}
 	fmt.Printf("Endpoint:   %s\n", valueOrNone(endpoint))

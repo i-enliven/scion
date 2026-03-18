@@ -919,10 +919,25 @@ func (s *Settings) IsHubConfigured() bool {
 	return s.Hub != nil && s.Hub.Endpoint != ""
 }
 
-// IsHubEnabled returns true if Hub integration is explicitly enabled.
-// Returns false if not configured or explicitly disabled.
+// IsHubEnabled returns true if Hub integration is enabled.
+// Hub is considered enabled when:
+//  1. hub.enabled is explicitly set to true, OR
+//  2. Hub credentials (token or apiKey) AND an endpoint are present
+//     (implicit enablement via credentials), AND hub.enabled is not
+//     explicitly set to false.
+//
+// This allows users with SCION_HUB_TOKEN and SCION_HUB_ENDPOINT env vars
+// to interact with the hub without requiring an explicit hub.enabled=true.
 func (s *Settings) IsHubEnabled() bool {
-	return s.Hub != nil && s.Hub.Enabled != nil && *s.Hub.Enabled
+	if s.Hub == nil {
+		return false
+	}
+	// Explicitly enabled
+	if s.Hub.Enabled != nil {
+		return *s.Hub.Enabled
+	}
+	// Implicitly enabled: credentials + endpoint present, Enabled not set
+	return s.Hub.Endpoint != "" && (s.Hub.Token != "" || s.Hub.APIKey != "")
 }
 
 // IsHubLinked returns true if this grove has been explicitly linked to the Hub
