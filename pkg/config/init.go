@@ -620,7 +620,7 @@ func writeGroveSettings(externalPath, workspacePath, groveID string, opt InitPro
 		// round-trips through VersionedSettings (which has no top-level
 		// grove_id field), leading to the global hub.grove_id bleeding
 		// into local groves.
-		if v, _ := settingsMap["schema_version"]; v == "1" {
+		if v := settingsMap["schema_version"]; v == "1" {
 			hub, _ := settingsMap["hub"].(map[string]interface{})
 			if hub == nil {
 				hub = make(map[string]interface{})

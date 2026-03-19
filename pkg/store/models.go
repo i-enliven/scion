@@ -1195,9 +1195,9 @@ type GitHubTokenPermissions struct {
 // GitIdentityConfig configures how agent commits are attributed.
 type GitIdentityConfig struct {
 	// Mode selects the attribution strategy: "bot" (default), "custom", or "co-authored".
-	Mode  string `json:"mode"`
+	Mode string `json:"mode"`
 	// Name is the git author/committer name (used when mode is "custom").
-	Name  string `json:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 	// Email is the git author/committer email (used when mode is "custom").
 	Email string `json:"email,omitempty"`
 }

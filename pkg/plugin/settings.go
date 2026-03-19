@@ -34,16 +34,10 @@ func PluginsConfigFromEntries(brokerEntries, harnessEntries map[string]V1PluginE
 		Harness: make(map[string]PluginEntry),
 	}
 	for name, entry := range brokerEntries {
-		cfg.Broker[name] = PluginEntry{
-			Path:   entry.Path,
-			Config: entry.Config,
-		}
+		cfg.Broker[name] = PluginEntry(entry)
 	}
 	for name, entry := range harnessEntries {
-		cfg.Harness[name] = PluginEntry{
-			Path:   entry.Path,
-			Config: entry.Config,
-		}
+		cfg.Harness[name] = PluginEntry(entry)
 	}
 	return cfg
 }

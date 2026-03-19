@@ -455,7 +455,7 @@ func TestEnvGather_HubHandler_SubmitEnv(t *testing.T) {
 		},
 	}
 
-	path := fmt.Sprintf("/api/v1/groves/grove-submit/agents/submit-agent/env")
+	path := "/api/v1/groves/grove-submit/agents/submit-agent/env"
 	rec := doRequest(t, srv, http.MethodPost, path, reqBody)
 
 	if rec.Code != http.StatusOK {
@@ -508,7 +508,7 @@ func TestEnvGather_HubHandler_SubmitEnv_InvalidState(t *testing.T) {
 		"env": map[string]string{"KEY": "value"},
 	}
 
-	path := fmt.Sprintf("/api/v1/groves/grove-invalid/agents/invalid-agent/env")
+	path := "/api/v1/groves/grove-invalid/agents/invalid-agent/env"
 	rec := doRequest(t, srv, http.MethodPost, path, reqBody)
 
 	if rec.Code != http.StatusConflict {

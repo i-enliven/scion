@@ -1298,14 +1298,7 @@ func AdaptLegacySettings(legacy *Settings) (*VersionedSettings, []string) {
 			if pc.HarnessOverrides != nil {
 				profile.HarnessOverrides = make(map[string]V1HarnessOverride, len(pc.HarnessOverrides))
 				for hk, ho := range pc.HarnessOverrides {
-					profile.HarnessOverrides[hk] = V1HarnessOverride{
-						Image:            ho.Image,
-						User:             ho.User,
-						Env:              ho.Env,
-						Volumes:          ho.Volumes,
-						AuthSelectedType: ho.AuthSelectedType,
-						Resources:        ho.Resources,
-					}
+					profile.HarnessOverrides[hk] = V1HarnessOverride(ho)
 				}
 			}
 			vs.Profiles[name] = profile
@@ -1410,14 +1403,7 @@ func convertVersionedToLegacy(vs *VersionedSettings) *Settings {
 			if pc.HarnessOverrides != nil {
 				profile.HarnessOverrides = make(map[string]HarnessOverride, len(pc.HarnessOverrides))
 				for hk, ho := range pc.HarnessOverrides {
-					profile.HarnessOverrides[hk] = HarnessOverride{
-						Image:            ho.Image,
-						User:             ho.User,
-						Env:              ho.Env,
-						Volumes:          ho.Volumes,
-						AuthSelectedType: ho.AuthSelectedType,
-						Resources:        ho.Resources,
-					}
+					profile.HarnessOverrides[hk] = HarnessOverride(ho)
 				}
 			}
 			s.Profiles[name] = profile

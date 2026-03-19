@@ -162,7 +162,7 @@ func checkGit() {
 		printCheck("git", "warn", fmt.Sprintf("git found at %s but version check failed", path), "")
 		return
 	}
-	printCheck("git", "pass", fmt.Sprintf("%s", trimNewline(string(out))), "")
+	printCheck("git", "pass", trimNewline(string(out)), "")
 }
 
 func checkTmux() {
@@ -180,7 +180,7 @@ func checkTmux() {
 		printCheck("tmux", "pass", "tmux found", "")
 		return
 	}
-	printCheck("tmux", "pass", fmt.Sprintf("%s", trimNewline(string(out))), "")
+	printCheck("tmux", "pass", trimNewline(string(out)), "")
 }
 
 func checkDockerOrPodman(name string) {

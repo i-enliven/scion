@@ -30,10 +30,10 @@ import (
 // GitHubAppConfigResponse is the API response for GitHub App configuration.
 // Sensitive fields (private key, webhook secret) are never returned.
 type GitHubAppConfigResponse struct {
-	AppID           int64                   `json:"app_id"`
-	APIBaseURL      string                  `json:"api_base_url,omitempty"`
-	WebhooksEnabled bool                    `json:"webhooks_enabled"`
-	Configured      bool                    `json:"configured"`
+	AppID           int64                    `json:"app_id"`
+	APIBaseURL      string                   `json:"api_base_url,omitempty"`
+	WebhooksEnabled bool                     `json:"webhooks_enabled"`
+	Configured      bool                     `json:"configured"`
 	RateLimit       *githubapp.RateLimitInfo `json:"rate_limit,omitempty"`
 }
 

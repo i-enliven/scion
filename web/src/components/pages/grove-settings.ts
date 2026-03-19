@@ -183,8 +183,6 @@ export class ScionPageGroveSettings extends LitElement {
   @state()
   private githubAppPermissions: GitHubTokenPermissions | null = null;
 
-  @state()
-  private githubAppLoading = false;
 
   @state()
   private githubAppError: string | null = null;
