@@ -274,9 +274,7 @@ func (s *Server) persistGitHubAppConfig(cfg GitHubAppServerConfig) error {
 	if cfg.APIBaseURL != "" {
 		ghApp["api_base_url"] = cfg.APIBaseURL
 	}
-	if cfg.WebhooksEnabled {
-		ghApp["webhooks_enabled"] = cfg.WebhooksEnabled
-	}
+	ghApp["webhooks_enabled"] = cfg.WebhooksEnabled
 	// Preserve existing private_key_path if it was set via settings.yaml directly
 	if cfg.PrivateKeyPath != "" {
 		ghApp["private_key_path"] = cfg.PrivateKeyPath

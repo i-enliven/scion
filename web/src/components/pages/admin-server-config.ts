@@ -1767,7 +1767,7 @@ export class ScionPageAdminServerConfig extends LitElement {
             <span class="hint">The numeric ID of your registered GitHub App</span>
             <sl-input
               type="number"
-              value=${this.githubAppId ? String(this.githubAppId) : ''}
+              .value=${this.githubAppId ? String(this.githubAppId) : ''}
               placeholder="e.g. 123456"
               @sl-input=${(e: Event) => {
                 this.githubAppId = parseInt((e.target as HTMLInputElement).value) || 0;
@@ -1778,7 +1778,7 @@ export class ScionPageAdminServerConfig extends LitElement {
             <label>API Base URL</label>
             <span class="hint">Override for GitHub Enterprise Server (leave empty for github.com)</span>
             <sl-input
-              value=${this.githubAppApiBaseUrl}
+              .value=${this.githubAppApiBaseUrl}
               placeholder="https://api.github.com"
               @sl-input=${(e: Event) => {
                 this.githubAppApiBaseUrl = (e.target as HTMLInputElement).value;
@@ -1794,7 +1794,7 @@ export class ScionPageAdminServerConfig extends LitElement {
             </span>
             <sl-textarea
               rows=${4}
-              value=${this.githubAppPrivateKey}
+              .value=${this.githubAppPrivateKey}
               placeholder=${this.githubAppHasPrivateKey ? '(configured — leave empty to keep current)' : '-----BEGIN RSA PRIVATE KEY-----\n...'}
               @sl-input=${(e: Event) => {
                 this.githubAppPrivateKey = (e.target as HTMLTextAreaElement).value;
@@ -1814,7 +1814,7 @@ export class ScionPageAdminServerConfig extends LitElement {
             <sl-input
               type="password"
               password-toggle
-              value=${this.githubAppWebhookSecret}
+              .value=${this.githubAppWebhookSecret}
               placeholder=${this.githubAppHasWebhookSecret ? '(configured — leave empty to keep current)' : 'whsec_...'}
               @sl-input=${(e: Event) => {
                 this.githubAppWebhookSecret = (e.target as HTMLInputElement).value;
@@ -1828,7 +1828,7 @@ export class ScionPageAdminServerConfig extends LitElement {
             <label>Webhooks</label>
             <span class="hint">Enable to receive installation lifecycle events from GitHub</span>
             <sl-switch
-              ?checked=${this.githubAppWebhooksEnabled}
+              .checked=${this.githubAppWebhooksEnabled}
               @sl-change=${(e: Event) => {
                 this.githubAppWebhooksEnabled = (e.target as HTMLInputElement).checked;
               }}
@@ -1840,7 +1840,7 @@ export class ScionPageAdminServerConfig extends LitElement {
             <label>Public Installation URL</label>
             <span class="hint">The public link where users can install this GitHub App on their org or account</span>
             <sl-input
-              value=${this.githubAppInstallationUrl}
+              .value=${this.githubAppInstallationUrl}
               placeholder="https://github.com/apps/your-app-name/installations/new"
               @sl-input=${(e: Event) => {
                 this.githubAppInstallationUrl = (e.target as HTMLInputElement).value;

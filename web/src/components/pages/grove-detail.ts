@@ -741,6 +741,11 @@ export class ScionPageGroveDetail extends LitElement {
       if (this.grove && !this.grove.gitRemote) {
         void this.loadWorkspaceFiles();
       }
+
+      // Auto-discover GitHub App installation if grove has a git remote but no installation
+      if (this.grove && this.grove.gitRemote && this.grove.githubInstallationId == null) {
+        void this.autoDiscoverGitHubApp();
+      }
     } catch (err) {
       console.error('Failed to load grove:', err);
       this.error = err instanceof Error ? err.message : 'Failed to load grove';
@@ -770,6 +775,29 @@ export class ScionPageGroveDetail extends LitElement {
       this.agentScopeCapabilities = data._capabilities;
     }
     stateManager.seedAgents(this.agents);
+  }
+
+  private async autoDiscoverGitHubApp(): Promise<void> {
+    try {
+      // Check if the hub has a GitHub App configured
+      const configRes = await apiFetch('/api/v1/github-app');
+      if (!configRes.ok) return;
+      const configData = (await configRes.json()) as { configured: boolean };
+      if (!configData.configured) return;
+
+      // Trigger discovery — the hub will match installations to this grove's git remote
+      const discoverRes = await apiFetch('/api/v1/github-app/installations/discover', { method: 'POST' });
+      if (!discoverRes.ok) return;
+
+      // Reload grove data to pick up the newly associated installation
+      const groveRes = await apiFetch(`/api/v1/groves/${this.groveId}`);
+      if (groveRes.ok) {
+        this.grove = (await groveRes.json()) as Grove;
+        stateManager.seedGroves([this.grove]);
+      }
+    } catch {
+      // Non-critical — grove just won't show GitHub icon until settings page is visited
+    }
   }
 
   private renderGroveIcon() {

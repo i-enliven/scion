@@ -632,6 +632,7 @@ func initHubServer(ctx context.Context, cfg *config.GlobalConfig, s store.Store,
 			WebhookSecret:   cfg.GitHubApp.WebhookSecret,
 			APIBaseURL:      cfg.GitHubApp.APIBaseURL,
 			WebhooksEnabled: cfg.GitHubApp.WebhooksEnabled,
+			InstallationURL: cfg.GitHubApp.InstallationURL,
 		},
 		OAuthConfig: hub.OAuthConfig{
 			Web: hub.OAuthClientConfig{
