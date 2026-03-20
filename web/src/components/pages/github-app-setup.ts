@@ -24,17 +24,18 @@
  */
 
 import { LitElement, html, css, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { apiFetch } from '../../client/api.js';
 
-import type { Grove, GitHubAppGroveStatus } from '../../shared/types.js';
+import type { PageData, Grove, GitHubAppGroveStatus } from '../../shared/types.js';
 
-interface GitHubGrove extends Grove {
-  _matchedInstallation?: boolean;
-}
+type GitHubGrove = Grove;
 
 @customElement('scion-page-github-app-setup')
 export class ScionPageGitHubAppSetup extends LitElement {
+  @property({ type: Object })
+  pageData?: PageData;
+
   @state()
   private loading = true;
 
@@ -108,7 +109,7 @@ export class ScionPageGitHubAppSetup extends LitElement {
   }
 
   private async loadGroves(): Promise<void> {
-    const res = await apiFetch('/api/v1/groves');
+    const res = await apiFetch('/api/v1/groves?mine=true');
     if (!res.ok) {
       throw new Error(`Failed to fetch groves: HTTP ${res.status}`);
     }
@@ -326,7 +327,7 @@ export class ScionPageGitHubAppSetup extends LitElement {
       padding: 0.75rem 1rem;
       border: 1px solid var(--scion-border, #e2e8f0);
       border-radius: var(--scion-radius, 0.5rem);
-      background: var(--scion-surface-alt, #f8fafc);
+      background: var(--scion-bg-subtle, #f8fafc);
     }
 
     .grove-info {

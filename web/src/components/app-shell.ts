@@ -46,6 +46,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/users': 'Users',
   '/admin/groups': 'Groups',
   '/admin/server-config': 'Server Config',
+  '/github-app/installed': 'GitHub App Setup',
 };
 
 @customElement('scion-app')
