@@ -369,11 +369,12 @@ export class ScionAgentMessageViewer extends LitElement {
     const urgent = (payload['urgent'] === true) || (labels['urgent'] === 'true');
     const broadcasted = (payload['broadcasted'] === true) || (labels['broadcasted'] === 'true');
 
-    // Determine direction relative to this agent
-    const agentSlug = this.agentName || this.agentId;
-    const senderLower = sender.toLowerCase();
-    const isSentByAgent = senderLower.includes(agentSlug.toLowerCase()) || senderLower === `agent:${agentSlug.toLowerCase()}`;
-    const direction: 'sent' | 'received' = isSentByAgent ? 'sent' : 'received';
+    // Determine direction relative to this agent.
+    // Use the agent_id label (unique ID) to determine if this agent is the
+    // target/recipient. If the log entry's agent_id matches our agentId, this
+    // is a received message; otherwise this agent must be the sender.
+    const entryAgentId = labels['agent_id'] || '';
+    const direction: 'sent' | 'received' = entryAgentId === this.agentId ? 'received' : 'sent';
 
     // Extract message body from the payload.
     // payload['message'] and entry.message are the Cloud Logging message
@@ -663,7 +664,7 @@ export class ScionAgentMessageViewer extends LitElement {
       const dirIcon = msg.direction === 'sent' ? 'box-arrow-up-right' : 'box-arrow-in-down-left';
 
       // Always show the current agent first with direction arrow
-      const agentSlug = this.agentName || this.agentId;
+      const agentLabel = this.agentName || this.agentId;
       const otherParty = msg.direction === 'sent'
         ? (msg.recipient || 'unknown')
         : (msg.sender || 'unknown');
@@ -675,7 +676,7 @@ export class ScionAgentMessageViewer extends LitElement {
           </div>
           <div class="msg-content">
             <div class="msg-header">
-              <span class="msg-actor">${agentSlug}</span>
+              <span class="msg-actor">${agentLabel}</span>
               <sl-icon name=${arrowIcon} class="msg-arrow" style="font-size:0.6875rem"></sl-icon>
               <span class="msg-target">${otherParty}</span>
               <div class="msg-badges">

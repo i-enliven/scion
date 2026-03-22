@@ -348,6 +348,7 @@ func (nd *NotificationDispatcher) dispatchToAgent(ctx context.Context, sub *stor
 			logAttrs := []any{
 				"agent_id", subscriber.ID,
 				"agent_name", subscriber.Name,
+				"grove_id", subscriber.GroveID,
 				"notification_id", notif.ID,
 			}
 			logAttrs = append(logAttrs, structuredMsg.LogAttrs()...)

@@ -63,7 +63,7 @@ type LogSourceLocation struct {
 // LogQueryOptions configures a Cloud Logging query.
 type LogQueryOptions struct {
 	AgentID   string
-	AgentSlug string // When set, builds an OR filter: agent_id match OR sender match (for message logs)
+	AgentSlug string // When set with AgentID, builds an OR filter: agent_id match OR sender match (for message logs)
 	GroveID   string
 	BrokerID  string
 	LogID     string // Cloud Logging log ID (e.g. "scion-messages"); empty = default log
@@ -171,7 +171,9 @@ func BuildLogFilter(opts LogQueryOptions, projectID ...string) string {
 	if opts.AgentID != "" && opts.AgentSlug != "" {
 		// Match messages where the agent is the recipient (agent_id label) OR
 		// the sender (sender label). This ensures both sent and received
-		// messages appear in the agent's message log view.
+		// messages appear in the agent's message log view. The timestamp
+		// bounds (Since) should be set to the agent's creation time to avoid
+		// matching messages from a different agent that reused the same slug.
 		parts = append(parts, fmt.Sprintf(
 			`(labels.agent_id = %q OR labels.sender = "agent:%s")`,
 			opts.AgentID, opts.AgentSlug))

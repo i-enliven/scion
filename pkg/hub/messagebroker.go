@@ -278,6 +278,7 @@ func (p *MessageBrokerProxy) deliverToAgent(ctx context.Context, groveID, agentS
 		logAttrs := []any{
 			"agent_id", agent.ID,
 			"agent_name", agent.Name,
+			"grove_id", agent.GroveID,
 			"source", "broker",
 		}
 		logAttrs = append(logAttrs, msg.LogAttrs()...)

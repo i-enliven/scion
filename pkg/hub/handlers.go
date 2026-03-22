@@ -1826,6 +1826,7 @@ func (s *Server) handleAgentMessage(w http.ResponseWriter, r *http.Request, id s
 	logAttrs := []any{
 		"agent_id", agent.ID,
 		"agent_name", agent.Name,
+		"grove_id", agent.GroveID,
 	}
 	if structuredMsg != nil {
 		logAttrs = append(logAttrs, structuredMsg.LogAttrs()...)
