@@ -106,6 +106,58 @@ func TestMaskSensitiveFields(t *testing.T) {
 	}
 }
 
+func TestApplySettingsUpdates_PreservesServerKeys(t *testing.T) {
+	// Simulate existing settings.yaml with a github_app section
+	raw := map[string]interface{}{
+		"schema_version": "1",
+		"server": map[string]interface{}{
+			"mode":      "workstation",
+			"log_level": "info",
+			"github_app": map[string]interface{}{
+				"app_id":           12345,
+				"webhooks_enabled": true,
+				"installation_url": "https://github.com/apps/my-app",
+			},
+		},
+	}
+
+	// Update request changes log_level but doesn't include github_app
+	logLevel := "debug"
+	req := &ServerConfigUpdateRequest{
+		Server: &config.V1ServerConfig{
+			LogLevel: logLevel,
+		},
+	}
+
+	applySettingsUpdates(raw, req)
+
+	serverMap, ok := raw["server"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected server to be a map")
+	}
+
+	// github_app should be preserved
+	ghApp, ok := serverMap["github_app"]
+	if !ok {
+		t.Fatal("github_app was lost from server config after update")
+	}
+	ghAppMap, ok := ghApp.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected github_app to be a map, got %T", ghApp)
+	}
+	if ghAppMap["app_id"] != 12345 {
+		t.Errorf("expected app_id 12345, got %v", ghAppMap["app_id"])
+	}
+	if ghAppMap["webhooks_enabled"] != true {
+		t.Errorf("expected webhooks_enabled true, got %v", ghAppMap["webhooks_enabled"])
+	}
+
+	// Updated field should be present
+	if serverMap["log_level"] != "debug" {
+		t.Errorf("expected log_level debug, got %v", serverMap["log_level"])
+	}
+}
+
 func serverConfigForMaskTest() config.V1ServerConfig {
 	return config.V1ServerConfig{
 		Auth: &config.V1AuthConfig{

@@ -313,7 +313,20 @@ func applySettingsUpdates(raw map[string]interface{}, req *ServerConfigUpdateReq
 	}
 
 	if req.Server != nil {
-		raw["server"] = marshalToMap(req.Server)
+		newServer := marshalToMap(req.Server)
+		// Merge into existing server section to preserve keys not present in the
+		// update (e.g. github_app managed via its own endpoint).
+		if existing, ok := raw["server"]; ok {
+			if existingMap, ok := existing.(map[string]interface{}); ok {
+				if newMap, ok := newServer.(map[string]interface{}); ok {
+					for k, v := range newMap {
+						existingMap[k] = v
+					}
+					newServer = existingMap
+				}
+			}
+		}
+		raw["server"] = newServer
 	}
 	if req.Telemetry != nil {
 		raw["telemetry"] = marshalToMap(req.Telemetry)

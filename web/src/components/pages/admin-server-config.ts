@@ -117,6 +117,13 @@ interface V1MessageBrokerConfig {
   type?: string;
 }
 
+interface V1GitHubAppConfig {
+  app_id?: number;
+  api_base_url?: string;
+  webhooks_enabled?: boolean;
+  installation_url?: string;
+}
+
 interface V1ServerConfig {
   mode?: string;
   log_level?: string;
@@ -130,6 +137,7 @@ interface V1ServerConfig {
   secrets?: V1SecretsConfig;
   notification_channels?: V1NotificationChannelConfig[];
   message_broker?: V1MessageBrokerConfig;
+  github_app?: V1GitHubAppConfig;
 }
 
 interface V1TelemetryCloudConfig {
@@ -810,12 +818,15 @@ export class ScionPageAdminServerConfig extends LitElement {
       type: this.messageBrokerType || undefined,
     };
 
-    // Preserve notification channels and OAuth from raw config (masked fields)
+    // Preserve notification channels, OAuth, and GitHub App from raw config
     if (this.rawConfig?.server?.notification_channels) {
       server.notification_channels = this.rawConfig.server.notification_channels;
     }
     if (this.rawConfig?.server?.oauth) {
       server.oauth = this.rawConfig.server.oauth;
+    }
+    if (this.rawConfig?.server?.github_app) {
+      server.github_app = this.rawConfig.server.github_app;
     }
 
     payload.server = server;
@@ -1940,6 +1951,18 @@ export class ScionPageAdminServerConfig extends LitElement {
         this.githubAppHasWebhookSecret = data.has_webhook_secret;
         this.githubAppInstallationUrl = data.installation_url || '';
         this.githubAppRateLimit = data.rate_limit || null;
+        // Keep rawConfig in sync so Save & Reload preserves these values
+        if (this.rawConfig) {
+          if (!this.rawConfig.server) {
+            this.rawConfig.server = {};
+          }
+          this.rawConfig.server.github_app = {
+            app_id: data.app_id || undefined,
+            api_base_url: data.api_base_url || undefined,
+            webhooks_enabled: data.webhooks_enabled,
+            installation_url: data.installation_url || undefined,
+          };
+        }
         // Clear write-only fields after load
         this.githubAppPrivateKey = '';
         this.githubAppWebhookSecret = '';
@@ -2038,6 +2061,18 @@ export class ScionPageAdminServerConfig extends LitElement {
       }
 
       this.githubAppSuccess = 'GitHub App configuration saved successfully.';
+      // Update rawConfig so the main Save & Reload preserves current values
+      if (this.rawConfig) {
+        if (!this.rawConfig.server) {
+          this.rawConfig.server = {};
+        }
+        this.rawConfig.server.github_app = {
+          app_id: this.githubAppId || undefined,
+          api_base_url: this.githubAppApiBaseUrl || undefined,
+          webhooks_enabled: this.githubAppWebhooksEnabled,
+          installation_url: this.githubAppInstallationUrl || undefined,
+        };
+      }
       // Reload to get fresh state (has_private_key, has_webhook_secret, configured)
       await this.loadGitHubAppConfig();
       // Reload installations if now configured
