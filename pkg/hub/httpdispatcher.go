@@ -52,16 +52,16 @@ func (c *HTTPRuntimeBrokerClient) StartAgent(ctx context.Context, brokerID, brok
 	return c.transport.StartAgent(ctx, brokerID, brokerEndpoint, agentID, task, grovePath, groveSlug, harnessConfig, resolvedEnv, resolvedSecrets, inlineConfig, sharedDirs)
 }
 
-func (c *HTTPRuntimeBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
-	return c.transport.StopAgent(ctx, brokerID, brokerEndpoint, agentID)
+func (c *HTTPRuntimeBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
+	return c.transport.StopAgent(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
-func (c *HTTPRuntimeBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
-	return c.transport.RestartAgent(ctx, brokerID, brokerEndpoint, agentID)
+func (c *HTTPRuntimeBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
+	return c.transport.RestartAgent(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
-func (c *HTTPRuntimeBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
-	return c.transport.DeleteAgent(ctx, brokerID, brokerEndpoint, agentID, deleteFiles, removeBranch, softDelete, deletedAt)
+func (c *HTTPRuntimeBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
+	return c.transport.DeleteAgent(ctx, brokerID, brokerEndpoint, agentID, groveID, deleteFiles, removeBranch, softDelete, deletedAt)
 }
 
 func (c *HTTPRuntimeBrokerClient) MessageAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID, message string, interrupt bool, structuredMsg *messages.StructuredMessage) error {
@@ -73,8 +73,8 @@ type HasPromptResponse struct {
 	HasPrompt bool `json:"hasPrompt"`
 }
 
-func (c *HTTPRuntimeBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID string) (bool, error) {
-	return c.transport.CheckAgentPrompt(ctx, brokerID, brokerEndpoint, agentID)
+func (c *HTTPRuntimeBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) (bool, error) {
+	return c.transport.CheckAgentPrompt(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
 // CreateAgentWithGather creates an agent and handles 202 env-gather responses.
@@ -86,8 +86,8 @@ func (c *HTTPRuntimeBrokerClient) FinalizeEnv(ctx context.Context, brokerID, bro
 	return c.transport.FinalizeEnv(ctx, brokerID, brokerEndpoint, agentID, env)
 }
 
-func (c *HTTPRuntimeBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID string, tail int) (string, error) {
-	return c.transport.GetAgentLogs(ctx, brokerID, brokerEndpoint, agentID, tail)
+func (c *HTTPRuntimeBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, tail int) (string, error) {
+	return c.transport.GetAgentLogs(ctx, brokerID, brokerEndpoint, agentID, groveID, tail)
 }
 
 func (c *HTTPRuntimeBrokerClient) CleanupGrove(ctx context.Context, brokerID, brokerEndpoint, groveSlug string) error {
@@ -1027,7 +1027,7 @@ func (d *HTTPAgentDispatcher) DispatchAgentStop(ctx context.Context, agent *stor
 		return err
 	}
 
-	return d.client.StopAgent(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug)
+	return d.client.StopAgent(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug, agent.GroveID)
 }
 
 // DispatchAgentRestart restarts an agent on the runtime broker.
@@ -1041,7 +1041,7 @@ func (d *HTTPAgentDispatcher) DispatchAgentRestart(ctx context.Context, agent *s
 		return err
 	}
 
-	return d.client.RestartAgent(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug)
+	return d.client.RestartAgent(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug, agent.GroveID)
 }
 
 // DispatchAgentDelete deletes an agent from the runtime broker.
@@ -1055,7 +1055,7 @@ func (d *HTTPAgentDispatcher) DispatchAgentDelete(ctx context.Context, agent *st
 		return err
 	}
 
-	return d.client.DeleteAgent(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug, deleteFiles, removeBranch, softDelete, deletedAt)
+	return d.client.DeleteAgent(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug, agent.GroveID, deleteFiles, removeBranch, softDelete, deletedAt)
 }
 
 // DispatchAgentMessage sends a message to an agent on the runtime broker.
@@ -1083,7 +1083,7 @@ func (d *HTTPAgentDispatcher) DispatchAgentLogs(ctx context.Context, agent *stor
 		return "", err
 	}
 
-	return d.client.GetAgentLogs(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug, tail)
+	return d.client.GetAgentLogs(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug, agent.GroveID, tail)
 }
 
 // DispatchCheckAgentPrompt checks if an agent has a non-empty prompt.md file.
@@ -1097,7 +1097,7 @@ func (d *HTTPAgentDispatcher) DispatchCheckAgentPrompt(ctx context.Context, agen
 		return false, err
 	}
 
-	return d.client.CheckAgentPrompt(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug)
+	return d.client.CheckAgentPrompt(ctx, agent.RuntimeBrokerID, endpoint, agent.Slug, agent.GroveID)
 }
 
 // resolveSecrets queries secrets from all applicable scopes and merges them

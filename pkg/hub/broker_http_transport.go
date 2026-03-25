@@ -214,8 +214,11 @@ func (t *brokerHTTPTransport) StartAgent(ctx context.Context, brokerID, brokerEn
 	return &result, nil
 }
 
-func (t *brokerHTTPTransport) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
+func (t *brokerHTTPTransport) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
 	endpoint := fmt.Sprintf("%s/api/v1/agents/%s/stop", strings.TrimSuffix(brokerEndpoint, "/"), url.PathEscape(agentID))
+	if groveID != "" {
+		endpoint += "?groveId=" + url.QueryEscape(groveID)
+	}
 	resp, err := t.doRequest(ctx, brokerID, http.MethodPost, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
@@ -227,8 +230,11 @@ func (t *brokerHTTPTransport) StopAgent(ctx context.Context, brokerID, brokerEnd
 	return nil
 }
 
-func (t *brokerHTTPTransport) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
+func (t *brokerHTTPTransport) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
 	endpoint := fmt.Sprintf("%s/api/v1/agents/%s/restart", strings.TrimSuffix(brokerEndpoint, "/"), url.PathEscape(agentID))
+	if groveID != "" {
+		endpoint += "?groveId=" + url.QueryEscape(groveID)
+	}
 	resp, err := t.doRequest(ctx, brokerID, http.MethodPost, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
@@ -240,9 +246,12 @@ func (t *brokerHTTPTransport) RestartAgent(ctx context.Context, brokerID, broker
 	return nil
 }
 
-func (t *brokerHTTPTransport) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
+func (t *brokerHTTPTransport) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
 	endpoint := fmt.Sprintf("%s/api/v1/agents/%s?deleteFiles=%t&removeBranch=%t",
 		strings.TrimSuffix(brokerEndpoint, "/"), url.PathEscape(agentID), deleteFiles, removeBranch)
+	if groveID != "" {
+		endpoint += "&groveId=" + url.QueryEscape(groveID)
+	}
 	if softDelete {
 		endpoint += fmt.Sprintf("&softDelete=true&deletedAt=%s", url.QueryEscape(deletedAt.Format(time.RFC3339)))
 	}
@@ -260,6 +269,9 @@ func (t *brokerHTTPTransport) DeleteAgent(ctx context.Context, brokerID, brokerE
 
 func (t *brokerHTTPTransport) MessageAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID, message string, interrupt bool, structuredMsg *messages.StructuredMessage) error {
 	endpoint := fmt.Sprintf("%s/api/v1/agents/%s/message", strings.TrimSuffix(brokerEndpoint, "/"), url.PathEscape(agentID))
+	if groveID != "" {
+		endpoint += "?groveId=" + url.QueryEscape(groveID)
+	}
 
 	// Build the request body with structured message if available
 	reqBody := map[string]interface{}{
@@ -289,8 +301,11 @@ func (t *brokerHTTPTransport) MessageAgent(ctx context.Context, brokerID, broker
 	return nil
 }
 
-func (t *brokerHTTPTransport) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID string) (bool, error) {
+func (t *brokerHTTPTransport) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) (bool, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/agents/%s/has-prompt", strings.TrimSuffix(brokerEndpoint, "/"), url.PathEscape(agentID))
+	if groveID != "" {
+		endpoint += "?groveId=" + url.QueryEscape(groveID)
+	}
 	resp, err := t.doRequest(ctx, brokerID, http.MethodPost, endpoint, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to send request: %w", err)
@@ -357,10 +372,15 @@ func (t *brokerHTTPTransport) FinalizeEnv(ctx context.Context, brokerID, brokerE
 	return &result, nil
 }
 
-func (t *brokerHTTPTransport) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID string, tail int) (string, error) {
+func (t *brokerHTTPTransport) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, tail int) (string, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/agents/%s/logs", strings.TrimSuffix(brokerEndpoint, "/"), url.PathEscape(agentID))
+	sep := "?"
 	if tail > 0 {
 		endpoint += fmt.Sprintf("?tail=%d", tail)
+		sep = "&"
+	}
+	if groveID != "" {
+		endpoint += sep + "groveId=" + url.QueryEscape(groveID)
 	}
 	resp, err := t.doRequest(ctx, brokerID, http.MethodGet, endpoint, nil)
 	if err != nil {

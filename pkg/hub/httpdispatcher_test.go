@@ -121,7 +121,7 @@ func (m *mockRuntimeBrokerClient) StartAgent(ctx context.Context, brokerID, brok
 	}, nil
 }
 
-func (m *mockRuntimeBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
+func (m *mockRuntimeBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
 	m.stopCalled = true
 	m.lastBrokerID = brokerID
 	m.lastEndpoint = brokerEndpoint
@@ -129,7 +129,7 @@ func (m *mockRuntimeBrokerClient) StopAgent(ctx context.Context, brokerID, broke
 	return m.returnErr
 }
 
-func (m *mockRuntimeBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
+func (m *mockRuntimeBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
 	m.restartCalled = true
 	m.lastBrokerID = brokerID
 	m.lastEndpoint = brokerEndpoint
@@ -137,7 +137,7 @@ func (m *mockRuntimeBrokerClient) RestartAgent(ctx context.Context, brokerID, br
 	return m.returnErr
 }
 
-func (m *mockRuntimeBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
+func (m *mockRuntimeBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
 	m.deleteCalled = true
 	m.lastBrokerID = brokerID
 	m.lastEndpoint = brokerEndpoint
@@ -157,7 +157,7 @@ func (m *mockRuntimeBrokerClient) MessageAgent(ctx context.Context, brokerID, br
 	return m.returnErr
 }
 
-func (m *mockRuntimeBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID string) (bool, error) {
+func (m *mockRuntimeBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) (bool, error) {
 	return false, m.returnErr
 }
 
@@ -167,7 +167,7 @@ func (m *mockRuntimeBrokerClient) FinalizeEnv(ctx context.Context, brokerID, bro
 	}, m.returnErr
 }
 
-func (m *mockRuntimeBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID string, tail int) (string, error) {
+func (m *mockRuntimeBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, tail int) (string, error) {
 	return "", nil
 }
 
@@ -454,7 +454,7 @@ func TestHTTPRuntimeBrokerClient_StopAgent(t *testing.T) {
 
 	client := NewHTTPRuntimeBrokerClient()
 
-	err := client.StopAgent(context.Background(), "host-1", server.URL, "test-agent")
+	err := client.StopAgent(context.Background(), "host-1", server.URL, "test-agent", "")
 	if err != nil {
 		t.Fatalf("StopAgent failed: %v", err)
 	}
@@ -483,7 +483,7 @@ func TestHTTPRuntimeBrokerClient_DeleteAgent(t *testing.T) {
 
 	client := NewHTTPRuntimeBrokerClient()
 
-	err := client.DeleteAgent(context.Background(), "host-1", server.URL, "test-agent", true, false, false, time.Time{})
+	err := client.DeleteAgent(context.Background(), "host-1", server.URL, "test-agent", "", true, false, false, time.Time{})
 	if err != nil {
 		t.Fatalf("DeleteAgent failed: %v", err)
 	}

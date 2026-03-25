@@ -285,7 +285,7 @@ func TestResolveManagerForAgent_DefaultManager(t *testing.T) {
 	rt := &runtime.MockRuntime{NameFunc: func() string { return "docker" }}
 	srv := New(DefaultServerConfig(), mgr, rt)
 
-	result := srv.resolveManagerForAgent(context.Background(), "myagent")
+	result := srv.resolveManagerForAgent(context.Background(), "myagent", "")
 	if result != mgr {
 		t.Error("expected default manager to be returned")
 	}
@@ -316,7 +316,7 @@ func TestResolveManagerForAgent_FallbackToAuxiliary(t *testing.T) {
 	}
 	srv.auxiliaryRuntimesMu.Unlock()
 
-	result := srv.resolveManagerForAgent(context.Background(), "k8sagent")
+	result := srv.resolveManagerForAgent(context.Background(), "k8sagent", "")
 	if result != auxMgr {
 		t.Error("expected auxiliary manager to be returned for k8s agent")
 	}
@@ -329,7 +329,7 @@ func TestResolveManagerForAgent_NotFoundFallsBackToDefault(t *testing.T) {
 	rt := &runtime.MockRuntime{NameFunc: func() string { return "docker" }}
 	srv := New(DefaultServerConfig(), defaultMgr, rt)
 
-	result := srv.resolveManagerForAgent(context.Background(), "nonexistent")
+	result := srv.resolveManagerForAgent(context.Background(), "nonexistent", "")
 	if result != defaultMgr {
 		t.Error("expected default manager when agent not found anywhere")
 	}
@@ -358,7 +358,7 @@ func TestResolveManagerForAgent_CaseInsensitive(t *testing.T) {
 	}
 	srv.auxiliaryRuntimesMu.Unlock()
 
-	result := srv.resolveManagerForAgent(context.Background(), "MyAgent")
+	result := srv.resolveManagerForAgent(context.Background(), "MyAgent", "")
 	if result != auxMgr {
 		t.Error("expected auxiliary manager to be returned for case-insensitive lookup")
 	}
@@ -375,7 +375,7 @@ func TestResolveRuntimeForAgent_DefaultRuntime(t *testing.T) {
 	rt := &runtime.MockRuntime{NameFunc: func() string { return "docker" }}
 	srv := New(DefaultServerConfig(), mgr, rt)
 
-	result := srv.resolveRuntimeForAgent(context.Background(), "myagent")
+	result := srv.resolveRuntimeForAgent(context.Background(), "myagent", "")
 	if result != rt {
 		t.Error("expected default runtime to be returned")
 	}
@@ -404,7 +404,7 @@ func TestResolveRuntimeForAgent_FallbackToAuxiliary(t *testing.T) {
 	}
 	srv.auxiliaryRuntimesMu.Unlock()
 
-	result := srv.resolveRuntimeForAgent(context.Background(), "k8sagent")
+	result := srv.resolveRuntimeForAgent(context.Background(), "k8sagent", "")
 	if result != auxRt {
 		t.Error("expected auxiliary runtime to be returned for k8s agent")
 	}
@@ -417,7 +417,7 @@ func TestResolveRuntimeForAgent_NotFoundFallsBackToDefault(t *testing.T) {
 	rt := &runtime.MockRuntime{NameFunc: func() string { return "docker" }}
 	srv := New(DefaultServerConfig(), defaultMgr, rt)
 
-	result := srv.resolveRuntimeForAgent(context.Background(), "nonexistent")
+	result := srv.resolveRuntimeForAgent(context.Background(), "nonexistent", "")
 	if result != rt {
 		t.Error("expected default runtime when agent not found anywhere")
 	}

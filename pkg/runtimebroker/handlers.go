@@ -36,6 +36,30 @@ import (
 	"github.com/GoogleCloudPlatform/scion/pkg/templatecache"
 )
 
+// matchesAgent checks whether an agent matches the given id and optional groveID.
+// When groveID is provided, it must match for uniqueness across groves.
+// When groveID is empty, matching falls back to name/containerID/slug only
+// (backward compatible with solo/CLI mode and pre-existing containers).
+func matchesAgent(a api.AgentInfo, id, groveID string) bool {
+	nameMatch := a.Name == id || a.ContainerID == id || a.Slug == id
+	if !nameMatch {
+		return false
+	}
+	if groveID == "" {
+		return true
+	}
+	// Check grove_id label first (authoritative), then GroveID field
+	if labelGroveID := a.Labels["scion.grove_id"]; labelGroveID != "" {
+		return labelGroveID == groveID
+	}
+	if a.GroveID != "" {
+		return a.GroveID == groveID
+	}
+	// No grove_id on container — match anyway for backward compatibility
+	// with containers created before grove_id labeling was added.
+	return true
+}
+
 // ============================================================================
 // Health Endpoints
 // ============================================================================
@@ -211,9 +235,18 @@ func (s *Server) listAgents(w http.ResponseWriter, r *http.Request) {
 	}
 	s.auxiliaryRuntimesMu.RUnlock()
 
+	// Dedup by name+groveID to prevent collision across groves while still
+	// deduplicating the same agent found on multiple runtimes.
+	agentKey := func(a api.AgentInfo) string {
+		gid := a.GroveID
+		if gid == "" {
+			gid = a.Labels["scion.grove_id"]
+		}
+		return a.Name + "\x00" + gid
+	}
 	seen := make(map[string]bool)
 	for _, ag := range agents {
-		seen[ag.Name] = true
+		seen[agentKey(ag)] = true
 	}
 	for _, aux := range auxRuntimes {
 		auxAgents, auxErr := aux.Manager.List(ctx, filter)
@@ -221,8 +254,9 @@ func (s *Server) listAgents(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		for _, ag := range auxAgents {
-			if !seen[ag.Name] {
-				seen[ag.Name] = true
+			k := agentKey(ag)
+			if !seen[k] {
+				seen[k] = true
 				agents = append(agents, ag)
 			}
 		}
@@ -733,6 +767,11 @@ func (s *Server) handleAgentByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract groveId from query params for grove-scoped agent resolution.
+	// This prevents cross-grove agent collision when two agents with the same
+	// name exist in different groves on the same broker.
+	groveID := r.URL.Query().Get("groveId")
+
 	// Handle WebSocket attach for PTY
 	if action == "attach" && isPTYWebSocketUpgrade(r) {
 		s.handleAgentAttach(w, r)
@@ -741,25 +780,25 @@ func (s *Server) handleAgentByID(w http.ResponseWriter, r *http.Request) {
 
 	// Handle actions
 	if action != "" {
-		s.handleAgentAction(w, r, id, action)
+		s.handleAgentAction(w, r, id, groveID, action)
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		s.getAgent(w, r, id)
+		s.getAgent(w, r, id, groveID)
 	case http.MethodDelete:
-		s.deleteAgent(w, r, id)
+		s.deleteAgent(w, r, id, groveID)
 	default:
 		MethodNotAllowed(w)
 	}
 }
 
-func (s *Server) getAgent(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) getAgent(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	ctx := r.Context()
 
 	// Resolve the correct manager (checks auxiliary runtimes if needed)
-	mgr := s.resolveManagerForAgent(ctx, id)
+	mgr := s.resolveManagerForAgent(ctx, id, groveID)
 
 	agents, err := mgr.List(ctx, map[string]string{"scion.agent": "true"})
 	if err != nil {
@@ -768,7 +807,7 @@ func (s *Server) getAgent(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	for _, agent := range agents {
-		if agent.Name == id || agent.ContainerID == id || agent.Slug == id {
+		if matchesAgent(agent, id, groveID) {
 			writeJSON(w, http.StatusOK, AgentInfoToResponse(agent))
 			return
 		}
@@ -777,7 +816,7 @@ func (s *Server) getAgent(w http.ResponseWriter, r *http.Request, id string) {
 	NotFound(w, "Agent")
 }
 
-func (s *Server) deleteAgent(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) deleteAgent(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	ctx := r.Context()
 	query := r.URL.Query()
 
@@ -786,14 +825,14 @@ func (s *Server) deleteAgent(w http.ResponseWriter, r *http.Request, id string) 
 	softDelete := query.Get("softDelete") == "true"
 
 	// Resolve the correct manager for this agent (may be on an auxiliary runtime)
-	mgr := s.resolveManagerForAgent(ctx, id)
+	mgr := s.resolveManagerForAgent(ctx, id, groveID)
 
 	// Get the agent's grove path and grove ID before stopping (needed for file deletion and logging)
 	var grovePath, agentGroveID string
 	agents, err := mgr.List(ctx, map[string]string{"scion.agent": "true"})
 	if err == nil {
 		for _, a := range agents {
-			if a.Name == id || a.ContainerID == id || a.Slug == id {
+			if matchesAgent(a, id, groveID) {
 				grovePath = a.GrovePath
 				agentGroveID = a.GroveID
 				if agentGroveID == "" {
@@ -855,7 +894,7 @@ func (s *Server) deleteAgent(w http.ResponseWriter, r *http.Request, id string) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request, id, action string) {
+func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request, id, groveID, action string) {
 	if r.Method != http.MethodPost {
 		MethodNotAllowed(w)
 		return
@@ -863,21 +902,21 @@ func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request, id, a
 
 	switch action {
 	case "start":
-		s.startAgent(w, r, id)
+		s.startAgent(w, r, id, groveID)
 	case "stop":
-		s.stopAgent(w, r, id)
+		s.stopAgent(w, r, id, groveID)
 	case "restart":
-		s.restartAgent(w, r, id)
+		s.restartAgent(w, r, id, groveID)
 	case "message":
-		s.sendMessage(w, r, id)
+		s.sendMessage(w, r, id, groveID)
 	case "exec":
 		s.execCommand(w, r, id)
 	case "logs":
-		s.getLogs(w, r, id)
+		s.getLogs(w, r, id, groveID)
 	case "stats":
-		s.getStats(w, r, id)
+		s.getStats(w, r, id, groveID)
 	case "has-prompt":
-		s.checkAgentPrompt(w, r, id)
+		s.checkAgentPrompt(w, r, id, groveID)
 	case "finalize-env":
 		s.finalizeEnv(w, r, id)
 	default:
@@ -885,7 +924,7 @@ func (s *Server) handleAgentAction(w http.ResponseWriter, r *http.Request, id, a
 	}
 }
 
-func (s *Server) startAgent(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) startAgent(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	ctx := r.Context()
 
 	// Read optional task, grovePath, groveSlug, harnessConfig, and resolvedEnv from request body
@@ -941,7 +980,7 @@ func (s *Server) startAgent(w http.ResponseWriter, r *http.Request, id string) {
 			return
 		}
 		for i := range agents {
-			if agents[i].Name == id || agents[i].ContainerID == id || agents[i].Slug == id {
+			if matchesAgent(agents[i], id, groveID) {
 				if agents[i].GrovePath != "" {
 					opts.GrovePath = agents[i].GrovePath
 				}
@@ -1042,10 +1081,10 @@ func isContainerStopTolerable(err error) bool {
 		strings.Contains(msg, "exit status 125")
 }
 
-func (s *Server) stopAgent(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) stopAgent(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	ctx := r.Context()
 
-	mgr := s.resolveManagerForAgent(ctx, id)
+	mgr := s.resolveManagerForAgent(ctx, id, groveID)
 	if err := mgr.Stop(ctx, id); err != nil {
 		if isContainerStopTolerable(err) {
 			// Container doesn't exist, is already stopped, or podman/docker can't find it.
@@ -1071,7 +1110,7 @@ func (s *Server) stopAgent(w http.ResponseWriter, r *http.Request, id string) {
 	})
 }
 
-func (s *Server) restartAgent(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) restartAgent(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	ctx := r.Context()
 
 	// Look up agent to get its name and grove path
@@ -1080,7 +1119,7 @@ func (s *Server) restartAgent(w http.ResponseWriter, r *http.Request, id string)
 	agents, err := s.manager.List(ctx, map[string]string{"scion.agent": "true"})
 	if err == nil {
 		for i := range agents {
-			if agents[i].Name == id || agents[i].ContainerID == id || agents[i].Slug == id {
+			if matchesAgent(agents[i], id, groveID) {
 				agentName = agents[i].Name
 				grovePath = agents[i].GrovePath
 				break
@@ -1106,7 +1145,7 @@ func (s *Server) restartAgent(w http.ResponseWriter, r *http.Request, id string)
 	// Stop then start — tolerate stop errors since the container may already
 	// be exited and the subsequent start will handle cleanup.
 	// Use resolveManagerForAgent to find the agent on auxiliary runtimes.
-	stopMgr := s.resolveManagerForAgent(ctx, id)
+	stopMgr := s.resolveManagerForAgent(ctx, id, groveID)
 	if err := stopMgr.Stop(ctx, id); err != nil {
 		if isContainerStopTolerable(err) {
 			s.agentLifecycleLog.Warn("Restart: stop target not found or already stopped, proceeding with start", "agent_id", id, "error", err)
@@ -1144,7 +1183,7 @@ func (s *Server) restartAgent(w http.ResponseWriter, r *http.Request, id string)
 	})
 }
 
-func (s *Server) sendMessage(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) sendMessage(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	ctx := r.Context()
 
 	var req MessageRequest
@@ -1164,7 +1203,7 @@ func (s *Server) sendMessage(w http.ResponseWriter, r *http.Request, id string) 
 	}
 
 	// Resolve the correct manager for this agent (may be on an auxiliary runtime like K8s)
-	mgr := s.resolveManagerForAgent(ctx, id)
+	mgr := s.resolveManagerForAgent(ctx, id, groveID)
 
 	// Raw messages bypass the paste buffer and debounce, sending literal
 	// bytes via tmux send-keys with no trailing Enter keypresses.
@@ -1229,8 +1268,9 @@ func (s *Server) execCommand(w http.ResponseWriter, r *http.Request, id string) 
 		return
 	}
 
-	// Resolve the correct runtime for this agent (may be on an auxiliary runtime like K8s)
-	rt := s.resolveRuntimeForAgent(ctx, id)
+	// Resolve the correct runtime for this agent (may be on an auxiliary runtime like K8s).
+	// Exec doesn't receive groveID from query params (internal operation).
+	rt := s.resolveRuntimeForAgent(ctx, id, "")
 
 	output, err := rt.Exec(ctx, id, req.Command)
 	if err != nil {
@@ -1248,11 +1288,11 @@ func (s *Server) execCommand(w http.ResponseWriter, r *http.Request, id string) 
 	})
 }
 
-func (s *Server) getLogs(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) getLogs(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	ctx := r.Context()
 
 	// Resolve the correct manager for this agent (may be on an auxiliary runtime like K8s)
-	mgr := s.resolveManagerForAgent(ctx, id)
+	mgr := s.resolveManagerForAgent(ctx, id, groveID)
 
 	// Try to read agent.log from the filesystem first (preferred source).
 	agents, err := mgr.List(ctx, map[string]string{"scion.agent": "true"})
@@ -1263,7 +1303,7 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request, id string) {
 
 	var found *api.AgentInfo
 	for i := range agents {
-		if agents[i].Name == id || agents[i].ContainerID == id || agents[i].Slug == id {
+		if matchesAgent(agents[i], id, groveID) {
 			found = &agents[i]
 			break
 		}
@@ -1288,7 +1328,7 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request, id string) {
 	}
 
 	// Fallback: read container stdout logs (resolve runtime for auxiliary runtimes)
-	rt := s.resolveRuntimeForAgent(ctx, id)
+	rt := s.resolveRuntimeForAgent(ctx, id, groveID)
 	logs, err := rt.GetLogs(ctx, id)
 	if err != nil {
 		RuntimeError(w, "Failed to get logs: "+err.Error())
@@ -1300,7 +1340,7 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request, id string) {
 	w.Write([]byte(logs))
 }
 
-func (s *Server) getStats(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) getStats(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	// TODO: Implement real stats from runtime
 	// For now, return placeholder data
 	writeJSON(w, http.StatusOK, StatsResponse{
@@ -1314,7 +1354,7 @@ type HasPromptResponse struct {
 	HasPrompt bool `json:"hasPrompt"`
 }
 
-func (s *Server) checkAgentPrompt(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Server) checkAgentPrompt(w http.ResponseWriter, r *http.Request, id, groveID string) {
 	ctx := r.Context()
 
 	// Find the agent to get its grove path
@@ -1326,7 +1366,7 @@ func (s *Server) checkAgentPrompt(w http.ResponseWriter, r *http.Request, id str
 
 	var agent *api.AgentInfo
 	for i := range agents {
-		if agents[i].Name == id || agents[i].ContainerID == id || agents[i].Slug == id {
+		if matchesAgent(agents[i], id, groveID) {
 			agent = &agents[i]
 			break
 		}
@@ -1830,9 +1870,13 @@ func (s *Server) finalizeEnv(w http.ResponseWriter, r *http.Request, id string) 
 // runtimes. This ensures stop/delete/restart operations target the correct
 // runtime when agents are launched on non-default runtimes (e.g. K8s pods
 // when the broker's default is Docker).
-func (s *Server) resolveManagerForAgent(ctx context.Context, id string) agent.Manager {
+// groveID scopes the lookup to a specific grove to prevent cross-grove collision.
+func (s *Server) resolveManagerForAgent(ctx context.Context, id, groveID string) agent.Manager {
 	slug := strings.ToLower(id)
 	filter := map[string]string{"scion.name": slug}
+	if groveID != "" {
+		filter["scion.grove_id"] = groveID
+	}
 
 	// Try the default manager first
 	agents, err := s.manager.List(ctx, filter)
@@ -1855,6 +1899,23 @@ func (s *Server) resolveManagerForAgent(ctx context.Context, id string) agent.Ma
 		}
 	}
 
+	// If grove-scoped lookup found nothing, retry without grove filter.
+	// This handles backward compatibility with containers that lack the
+	// scion.grove_id label (pre-existing agents or solo/CLI mode).
+	if groveID != "" {
+		fallbackFilter := map[string]string{"scion.name": slug}
+		agents, err = s.manager.List(ctx, fallbackFilter)
+		if err == nil && len(agents) > 0 {
+			return s.manager
+		}
+		for _, aux := range auxRuntimes {
+			auxAgents, auxErr := aux.Manager.List(ctx, fallbackFilter)
+			if auxErr == nil && len(auxAgents) > 0 {
+				return aux.Manager
+			}
+		}
+	}
+
 	// Default fallback — the agent may have already been removed or the
 	// runtime is genuinely the default one (e.g. pod already deleted).
 	return s.manager
@@ -1864,9 +1925,13 @@ func (s *Server) resolveManagerForAgent(ctx context.Context, id string) agent.Ma
 // existing agent by checking the default runtime first, then falling back
 // to auxiliary runtimes. This is needed for operations that call runtime
 // methods directly (e.g. Exec, GetLogs) rather than going through the manager.
-func (s *Server) resolveRuntimeForAgent(ctx context.Context, id string) scionrt.Runtime {
+// groveID scopes the lookup to a specific grove to prevent cross-grove collision.
+func (s *Server) resolveRuntimeForAgent(ctx context.Context, id, groveID string) scionrt.Runtime {
 	slug := strings.ToLower(id)
 	filter := map[string]string{"scion.name": slug}
+	if groveID != "" {
+		filter["scion.grove_id"] = groveID
+	}
 
 	// Try the default manager first
 	agents, err := s.manager.List(ctx, filter)
@@ -1886,6 +1951,21 @@ func (s *Server) resolveRuntimeForAgent(ctx context.Context, id string) scionrt.
 		auxAgents, auxErr := aux.Manager.List(ctx, filter)
 		if auxErr == nil && len(auxAgents) > 0 {
 			return aux.Runtime
+		}
+	}
+
+	// Backward compatibility: retry without grove filter for pre-existing containers
+	if groveID != "" {
+		fallbackFilter := map[string]string{"scion.name": slug}
+		agents, err = s.manager.List(ctx, fallbackFilter)
+		if err == nil && len(agents) > 0 {
+			return s.runtime
+		}
+		for _, aux := range auxRuntimes {
+			auxAgents, auxErr := aux.Manager.List(ctx, fallbackFilter)
+			if auxErr == nil && len(auxAgents) > 0 {
+				return aux.Runtime
+			}
 		}
 	}
 

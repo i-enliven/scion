@@ -217,16 +217,19 @@ type RuntimeBrokerClient interface {
 
 	// StopAgent stops an agent on a remote runtime broker.
 	// brokerID is used for HMAC authentication lookup.
-	StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error
+	// groveID scopes the lookup to a specific grove (required for uniqueness).
+	StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error
 
 	// RestartAgent restarts an agent on a remote runtime broker.
 	// brokerID is used for HMAC authentication lookup.
-	RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error
+	// groveID scopes the lookup to a specific grove (required for uniqueness).
+	RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error
 
 	// DeleteAgent deletes an agent from a remote runtime broker.
 	// brokerID is used for HMAC authentication lookup.
+	// groveID scopes the lookup to a specific grove (required for uniqueness).
 	// softDelete and deletedAt are passed as query params for broker-side marking.
-	DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error
+	DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error
 
 	// MessageAgent sends a message to an agent on a remote runtime broker.
 	// brokerID is used for HMAC authentication lookup.
@@ -235,7 +238,8 @@ type RuntimeBrokerClient interface {
 
 	// CheckAgentPrompt checks if an agent has a non-empty prompt.md file.
 	// brokerID is used for HMAC authentication lookup.
-	CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID string) (bool, error)
+	// groveID scopes the lookup to a specific grove (required for uniqueness).
+	CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) (bool, error)
 
 	// FinalizeEnv sends gathered env vars to a broker to complete agent creation
 	// after an initial 202 env-gather response.
@@ -247,7 +251,8 @@ type RuntimeBrokerClient interface {
 
 	// GetAgentLogs retrieves agent.log content from a remote runtime broker.
 	// brokerID is used for HMAC authentication lookup.
-	GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID string, tail int) (string, error)
+	// groveID scopes the lookup to a specific grove (required for uniqueness).
+	GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, tail int) (string, error)
 
 	// CleanupGrove asks a broker to remove its local hub-native grove directory.
 	// brokerID is used for HMAC authentication lookup.

@@ -1594,6 +1594,7 @@ func (r *KubernetesRuntime) List(ctx context.Context, labelFilter map[string]str
 			Name:            p.Labels["scion.name"],
 			Template:        p.Labels["scion.template"],
 			Grove:           p.Labels["scion.grove"],
+			GroveID:         p.Labels["scion.grove_id"],
 			GrovePath:       grovePath,
 			Labels:          p.Labels,
 			Annotations:     p.Annotations,

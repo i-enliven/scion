@@ -700,14 +700,23 @@ func (m *AgentManager) Start(ctx context.Context, opts api.StartOptions) (*api.A
 		Debug:                util.DebugEnabled(),
 		Resume:               opts.Resume,
 		MetadataInterception: hasMetadataInterception(agentEnv),
-		Labels: map[string]string{
-			"scion.agent":          "true",
-			"scion.name":           api.Slugify(opts.Name),
-			"scion.grove":          groveName,
-			"scion.template":       template,
-			"scion.harness_config": harnessConfigName,
-			"scion.harness_auth":   opts.HarnessAuth,
-		},
+		Labels: func() map[string]string {
+			l := map[string]string{
+				"scion.agent":          "true",
+				"scion.name":           api.Slugify(opts.Name),
+				"scion.grove":          groveName,
+				"scion.template":       template,
+				"scion.harness_config": harnessConfigName,
+				"scion.harness_auth":   opts.HarnessAuth,
+			}
+			// Add grove_id label for grove-scoped agent isolation.
+			// In broker/hosted mode this comes from the SCION_GROVE_ID env var
+			// injected by the hub dispatcher.
+			if groveID := opts.Env["SCION_GROVE_ID"]; groveID != "" {
+				l["scion.grove_id"] = groveID
+			}
+			return l
+		}(),
 		Annotations: map[string]string{
 			"scion.grove_path": projectDir,
 		},

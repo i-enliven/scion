@@ -62,7 +62,7 @@ func TestControlChannelBrokerClient_DeleteAgentSignsTunneledRequest(t *testing.T
 		signer:  signer,
 	}
 
-	err := client.DeleteAgent(context.Background(), "broker-1", "unused", "agent-1", true, false, false, time.Time{})
+	err := client.DeleteAgent(context.Background(), "broker-1", "unused", "agent-1", "", true, false, false, time.Time{})
 	if err != nil {
 		t.Fatalf("DeleteAgent returned error: %v", err)
 	}

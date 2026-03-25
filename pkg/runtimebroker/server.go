@@ -908,7 +908,10 @@ func (s *Server) LookupContainerID(ctx context.Context, slug string) (string, er
 	// Normalize slug to lowercase for case-insensitive lookup
 	slug = strings.ToLower(slug)
 
-	// Look up agent using List with filter by name
+	// Look up agent using List with filter by name.
+	// LookupContainerID is used for internal broker operations (e.g. attach)
+	// where grove scoping is not available. Name-only lookup is acceptable
+	// here because the caller already resolved the agent identity.
 	filter := map[string]string{"scion.name": slug}
 	agents, err := s.manager.List(ctx, filter)
 	if err != nil {

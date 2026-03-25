@@ -498,17 +498,17 @@ func TestAuthenticatedBrokerClient_AllOperations(t *testing.T) {
 		t.Errorf("StartAgent failed: %v", err)
 	}
 
-	err = client.StopAgent(ctx, brokerID, server.URL, "test-agent")
+	err = client.StopAgent(ctx, brokerID, server.URL, "test-agent", "")
 	if err != nil {
 		t.Errorf("StopAgent failed: %v", err)
 	}
 
-	err = client.RestartAgent(ctx, brokerID, server.URL, "test-agent")
+	err = client.RestartAgent(ctx, brokerID, server.URL, "test-agent", "")
 	if err != nil {
 		t.Errorf("RestartAgent failed: %v", err)
 	}
 
-	err = client.DeleteAgent(ctx, brokerID, server.URL, "test-agent", true, true, false, time.Time{})
+	err = client.DeleteAgent(ctx, brokerID, server.URL, "test-agent", "", true, true, false, time.Time{})
 	if err != nil {
 		t.Errorf("DeleteAgent failed: %v", err)
 	}

@@ -128,26 +128,37 @@ func (c *ControlChannelBrokerClient) StartAgent(ctx context.Context, brokerID, b
 }
 
 // StopAgent stops an agent via control channel.
-func (c *ControlChannelBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
+func (c *ControlChannelBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
 	_ = brokerEndpoint
 	path := fmt.Sprintf("/api/v1/agents/%s/stop", url.PathEscape(agentID))
-	_, err := c.doRequest(ctx, brokerID, "POST", path, "", nil)
+	query := ""
+	if groveID != "" {
+		query = "groveId=" + url.QueryEscape(groveID)
+	}
+	_, err := c.doRequest(ctx, brokerID, "POST", path, query, nil)
 	return err
 }
 
 // RestartAgent restarts an agent via control channel.
-func (c *ControlChannelBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
+func (c *ControlChannelBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
 	_ = brokerEndpoint
 	path := fmt.Sprintf("/api/v1/agents/%s/restart", url.PathEscape(agentID))
-	_, err := c.doRequest(ctx, brokerID, "POST", path, "", nil)
+	query := ""
+	if groveID != "" {
+		query = "groveId=" + url.QueryEscape(groveID)
+	}
+	_, err := c.doRequest(ctx, brokerID, "POST", path, query, nil)
 	return err
 }
 
 // DeleteAgent deletes an agent via control channel.
-func (c *ControlChannelBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
+func (c *ControlChannelBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
 	_ = brokerEndpoint
 	path := fmt.Sprintf("/api/v1/agents/%s", url.PathEscape(agentID))
 	query := fmt.Sprintf("deleteFiles=%t&removeBranch=%t", deleteFiles, removeBranch)
+	if groveID != "" {
+		query += "&groveId=" + url.QueryEscape(groveID)
+	}
 	if softDelete {
 		query += fmt.Sprintf("&softDelete=true&deletedAt=%s", url.QueryEscape(deletedAt.Format(time.RFC3339)))
 	}
@@ -166,6 +177,10 @@ func (c *ControlChannelBrokerClient) DeleteAgent(ctx context.Context, brokerID, 
 func (c *ControlChannelBrokerClient) MessageAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID, message string, interrupt bool, structuredMsg *messages.StructuredMessage) error {
 	_ = brokerEndpoint
 	path := fmt.Sprintf("/api/v1/agents/%s/message", url.PathEscape(agentID))
+	query := ""
+	if groveID != "" {
+		query = "groveId=" + url.QueryEscape(groveID)
+	}
 
 	// Build the request body with structured message if available
 	reqBody := map[string]interface{}{
@@ -185,16 +200,20 @@ func (c *ControlChannelBrokerClient) MessageAgent(ctx context.Context, brokerID,
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	_, err = c.doRequest(ctx, brokerID, "POST", path, "", body)
+	_, err = c.doRequest(ctx, brokerID, "POST", path, query, body)
 	return err
 }
 
 // CheckAgentPrompt checks if an agent has a non-empty prompt.md file via control channel.
-func (c *ControlChannelBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID string) (bool, error) {
+func (c *ControlChannelBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) (bool, error) {
 	_ = brokerEndpoint
 	path := fmt.Sprintf("/api/v1/agents/%s/has-prompt", url.PathEscape(agentID))
+	query := ""
+	if groveID != "" {
+		query = "groveId=" + url.QueryEscape(groveID)
+	}
 
-	resp, err := c.doRequest(ctx, brokerID, "POST", path, "", nil)
+	resp, err := c.doRequest(ctx, brokerID, "POST", path, query, nil)
 	if err != nil {
 		return false, err
 	}
@@ -238,12 +257,18 @@ func (c *ControlChannelBrokerClient) CreateAgentWithGather(ctx context.Context, 
 }
 
 // GetAgentLogs retrieves agent.log content from a remote runtime broker via control channel.
-func (c *ControlChannelBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID string, tail int) (string, error) {
+func (c *ControlChannelBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, tail int) (string, error) {
 	_ = brokerEndpoint
 	path := fmt.Sprintf("/api/v1/agents/%s/logs", url.PathEscape(agentID))
 	query := ""
 	if tail > 0 {
 		query = fmt.Sprintf("tail=%d", tail)
+	}
+	if groveID != "" {
+		if query != "" {
+			query += "&"
+		}
+		query += "groveId=" + url.QueryEscape(groveID)
 	}
 	resp, err := c.doRequest(ctx, brokerID, "GET", path, query, nil)
 	if err != nil {
@@ -415,27 +440,27 @@ func (c *HybridBrokerClient) StartAgent(ctx context.Context, brokerID, brokerEnd
 }
 
 // StopAgent stops an agent, preferring control channel.
-func (c *HybridBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
+func (c *HybridBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
 	if c.useControlChannel(brokerID) {
-		return c.controlChannel.StopAgent(ctx, brokerID, brokerEndpoint, agentID)
+		return c.controlChannel.StopAgent(ctx, brokerID, brokerEndpoint, agentID, groveID)
 	}
-	return c.httpClient.StopAgent(ctx, brokerID, brokerEndpoint, agentID)
+	return c.httpClient.StopAgent(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
 // RestartAgent restarts an agent, preferring control channel.
-func (c *HybridBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
+func (c *HybridBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
 	if c.useControlChannel(brokerID) {
-		return c.controlChannel.RestartAgent(ctx, brokerID, brokerEndpoint, agentID)
+		return c.controlChannel.RestartAgent(ctx, brokerID, brokerEndpoint, agentID, groveID)
 	}
-	return c.httpClient.RestartAgent(ctx, brokerID, brokerEndpoint, agentID)
+	return c.httpClient.RestartAgent(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
 // DeleteAgent deletes an agent, preferring control channel.
-func (c *HybridBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
+func (c *HybridBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
 	if c.useControlChannel(brokerID) {
-		return c.controlChannel.DeleteAgent(ctx, brokerID, brokerEndpoint, agentID, deleteFiles, removeBranch, softDelete, deletedAt)
+		return c.controlChannel.DeleteAgent(ctx, brokerID, brokerEndpoint, agentID, groveID, deleteFiles, removeBranch, softDelete, deletedAt)
 	}
-	return c.httpClient.DeleteAgent(ctx, brokerID, brokerEndpoint, agentID, deleteFiles, removeBranch, softDelete, deletedAt)
+	return c.httpClient.DeleteAgent(ctx, brokerID, brokerEndpoint, agentID, groveID, deleteFiles, removeBranch, softDelete, deletedAt)
 }
 
 // MessageAgent sends a message to an agent, preferring control channel.
@@ -447,11 +472,11 @@ func (c *HybridBrokerClient) MessageAgent(ctx context.Context, brokerID, brokerE
 }
 
 // CheckAgentPrompt checks if an agent has a non-empty prompt.md file.
-func (c *HybridBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID string) (bool, error) {
+func (c *HybridBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) (bool, error) {
 	if c.useControlChannel(brokerID) {
-		return c.controlChannel.CheckAgentPrompt(ctx, brokerID, brokerEndpoint, agentID)
+		return c.controlChannel.CheckAgentPrompt(ctx, brokerID, brokerEndpoint, agentID, groveID)
 	}
-	return c.httpClient.CheckAgentPrompt(ctx, brokerID, brokerEndpoint, agentID)
+	return c.httpClient.CheckAgentPrompt(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
 // CreateAgentWithGather creates an agent with env-gather support, preferring control channel.
@@ -463,11 +488,11 @@ func (c *HybridBrokerClient) CreateAgentWithGather(ctx context.Context, brokerID
 }
 
 // GetAgentLogs retrieves agent.log content, preferring control channel.
-func (c *HybridBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID string, tail int) (string, error) {
+func (c *HybridBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, tail int) (string, error) {
 	if c.useControlChannel(brokerID) {
-		return c.controlChannel.GetAgentLogs(ctx, brokerID, brokerEndpoint, agentID, tail)
+		return c.controlChannel.GetAgentLogs(ctx, brokerID, brokerEndpoint, agentID, groveID, tail)
 	}
-	return c.httpClient.GetAgentLogs(ctx, brokerID, brokerEndpoint, agentID, tail)
+	return c.httpClient.GetAgentLogs(ctx, brokerID, brokerEndpoint, agentID, groveID, tail)
 }
 
 func (c *HybridBrokerClient) CleanupGrove(ctx context.Context, brokerID, brokerEndpoint, groveSlug string) error {

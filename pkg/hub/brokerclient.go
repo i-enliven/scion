@@ -49,18 +49,18 @@ func (c *AuthenticatedBrokerClient) StartAgent(ctx context.Context, brokerID, br
 }
 
 // StopAgent stops an agent on a remote runtime broker with HMAC authentication.
-func (c *AuthenticatedBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
-	return c.transport.StopAgent(ctx, brokerID, brokerEndpoint, agentID)
+func (c *AuthenticatedBrokerClient) StopAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
+	return c.transport.StopAgent(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
 // RestartAgent restarts an agent on a remote runtime broker with HMAC authentication.
-func (c *AuthenticatedBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string) error {
-	return c.transport.RestartAgent(ctx, brokerID, brokerEndpoint, agentID)
+func (c *AuthenticatedBrokerClient) RestartAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) error {
+	return c.transport.RestartAgent(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
 // DeleteAgent deletes an agent from a remote runtime broker with HMAC authentication.
-func (c *AuthenticatedBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
-	return c.transport.DeleteAgent(ctx, brokerID, brokerEndpoint, agentID, deleteFiles, removeBranch, softDelete, deletedAt)
+func (c *AuthenticatedBrokerClient) DeleteAgent(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, deleteFiles, removeBranch, softDelete bool, deletedAt time.Time) error {
+	return c.transport.DeleteAgent(ctx, brokerID, brokerEndpoint, agentID, groveID, deleteFiles, removeBranch, softDelete, deletedAt)
 }
 
 // MessageAgent sends a message to an agent on a remote runtime broker with HMAC authentication.
@@ -69,8 +69,8 @@ func (c *AuthenticatedBrokerClient) MessageAgent(ctx context.Context, brokerID, 
 }
 
 // CheckAgentPrompt checks if an agent has a non-empty prompt.md file on a remote runtime broker.
-func (c *AuthenticatedBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID string) (bool, error) {
-	return c.transport.CheckAgentPrompt(ctx, brokerID, brokerEndpoint, agentID)
+func (c *AuthenticatedBrokerClient) CheckAgentPrompt(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string) (bool, error) {
+	return c.transport.CheckAgentPrompt(ctx, brokerID, brokerEndpoint, agentID, groveID)
 }
 
 // CreateAgentWithGather creates an agent and handles 202 env-gather responses.
@@ -79,8 +79,8 @@ func (c *AuthenticatedBrokerClient) CreateAgentWithGather(ctx context.Context, b
 }
 
 // GetAgentLogs retrieves agent.log content from a remote runtime broker with HMAC authentication.
-func (c *AuthenticatedBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID string, tail int) (string, error) {
-	return c.transport.GetAgentLogs(ctx, brokerID, brokerEndpoint, agentID, tail)
+func (c *AuthenticatedBrokerClient) GetAgentLogs(ctx context.Context, brokerID, brokerEndpoint, agentID, groveID string, tail int) (string, error) {
+	return c.transport.GetAgentLogs(ctx, brokerID, brokerEndpoint, agentID, groveID, tail)
 }
 
 // CleanupGrove asks a broker to remove its local hub-native grove directory with HMAC authentication.
