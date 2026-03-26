@@ -114,6 +114,7 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 		migrationV36,
 		migrationV37,
 		migrationV38,
+		migrationV39,
 	}
 
 	// Create migrations table if not exists
@@ -863,6 +864,31 @@ ALTER TABLE agents ADD COLUMN ancestry TEXT;
 const migrationV38 = `
 UPDATE agents SET ancestry = json_array(created_by)
 WHERE created_by IS NOT NULL AND created_by != '' AND ancestry IS NULL;
+`
+
+// Migration V39: Messages table for bidirectional human-agent messaging.
+const migrationV39 = `
+CREATE TABLE IF NOT EXISTS messages (
+	id TEXT PRIMARY KEY,
+	grove_id TEXT NOT NULL,
+	sender TEXT NOT NULL,
+	sender_id TEXT NOT NULL DEFAULT '',
+	recipient TEXT NOT NULL,
+	recipient_id TEXT NOT NULL DEFAULT '',
+	msg TEXT NOT NULL,
+	type TEXT NOT NULL DEFAULT 'instruction',
+	urgent INTEGER NOT NULL DEFAULT 0,
+	broadcasted INTEGER NOT NULL DEFAULT 0,
+	read INTEGER NOT NULL DEFAULT 0,
+	agent_id TEXT NOT NULL DEFAULT '',
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_grove ON messages(grove_id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id, read);
+CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 `
 
 // Helper functions for JSON marshaling/unmarshaling

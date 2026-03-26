@@ -1856,6 +1856,27 @@ func (s *Server) handleAgentMessage(w http.ResponseWriter, r *http.Request, id s
 	}
 	s.logMessage("message dispatched", logAttrs...)
 
+	// Persist to message store (write-through; non-fatal if store fails)
+	if structuredMsg != nil {
+		storeMsg := &store.Message{
+			ID:          api.NewUUID(),
+			GroveID:     agent.GroveID,
+			Sender:      structuredMsg.Sender,
+			SenderID:    structuredMsg.SenderID,
+			Recipient:   structuredMsg.Recipient,
+			RecipientID: structuredMsg.RecipientID,
+			Msg:         structuredMsg.Msg,
+			Type:        structuredMsg.Type,
+			Urgent:      structuredMsg.Urgent,
+			Broadcasted: structuredMsg.Broadcasted,
+			AgentID:     agent.ID,
+			CreatedAt:   time.Now(),
+		}
+		if err := s.store.CreateMessage(ctx, storeMsg); err != nil {
+			s.messageLog.Error("Failed to persist message", "error", err)
+		}
+	}
+
 	// If a dispatcher is available, dispatch the message to the runtime broker
 	dispatcher := s.GetDispatcher()
 	if dispatcher == nil {
@@ -2006,6 +2027,24 @@ func (s *Server) broadcastDirect(w http.ResponseWriter, r *http.Request, groveID
 			s.messageLog.Error("Failed to deliver broadcast message to agent",
 				"agent_id", agent.ID,
 				"agentSlug", agent.Slug, "error", err)
+		}
+		// Persist broadcast message per recipient (non-fatal)
+		storeMsg := &store.Message{
+			ID:          api.NewUUID(),
+			GroveID:     groveID,
+			Sender:      agentMsg.Sender,
+			SenderID:    agentMsg.SenderID,
+			Recipient:   agentMsg.Recipient,
+			RecipientID: agentMsg.RecipientID,
+			Msg:         agentMsg.Msg,
+			Type:        agentMsg.Type,
+			Urgent:      agentMsg.Urgent,
+			Broadcasted: true,
+			AgentID:     agent.ID,
+			CreatedAt:   time.Now(),
+		}
+		if err := s.store.CreateMessage(ctx, storeMsg); err != nil {
+			s.messageLog.Error("Failed to persist broadcast message", "agent_id", agent.ID, "error", err)
 		}
 	}
 

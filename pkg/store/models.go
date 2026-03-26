@@ -988,6 +988,37 @@ const (
 // =============================================================================
 
 // =============================================================================
+// Messages (Bidirectional Human-Agent Messaging)
+// =============================================================================
+
+// Message represents a persisted structured message between agents and humans.
+type Message struct {
+	ID          string    `json:"id"`
+	GroveID     string    `json:"groveId"`
+	Sender      string    `json:"sender"`    // "user:alice", "agent:code-reviewer"
+	SenderID    string    `json:"senderId"`  // UUID or identity key
+	Recipient   string    `json:"recipient"` // "user:alice", "agent:code-reviewer"
+	RecipientID string    `json:"recipientId"`
+	Msg         string    `json:"msg"`
+	Type        string    `json:"type"` // "instruction", "input-needed", "state-change"
+	Urgent      bool      `json:"urgent,omitempty"`
+	Broadcasted bool      `json:"broadcasted,omitempty"`
+	Read        bool      `json:"read"`    // Whether recipient has read/acknowledged
+	AgentID     string    `json:"agentId"` // The agent involved (sender or recipient)
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+// MessageFilter defines query parameters for listing messages.
+type MessageFilter struct {
+	GroveID     string // Filter by grove
+	AgentID     string // Filter by involved agent
+	RecipientID string // Filter by recipient
+	SenderID    string // Filter by sender
+	OnlyUnread  bool   // Only unread messages
+	Type        string // Filter by message type
+}
+
+// =============================================================================
 // Scheduled Events (One-Shot Timers)
 // =============================================================================
 

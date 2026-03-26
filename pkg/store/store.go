@@ -93,6 +93,9 @@ type Store interface {
 
 	// GitHub App Installation operations
 	GitHubInstallationStore
+
+	// Message operations (Bidirectional Human-Agent Messaging)
+	MessageStore
 }
 
 // AgentStore defines agent-related persistence operations.
@@ -933,4 +936,33 @@ type GitHubInstallationFilter struct {
 	AccountLogin string // Filter by GitHub account login
 	Status       string // Filter by status (active, suspended, deleted)
 	AppID        int64  // Filter by app ID
+}
+
+// =============================================================================
+// Messages (Bidirectional Human-Agent Messaging)
+// =============================================================================
+
+// MessageStore manages persisted structured messages.
+type MessageStore interface {
+	// CreateMessage persists a new message.
+	CreateMessage(ctx context.Context, msg *Message) error
+
+	// GetMessage returns a single message by ID.
+	// Returns ErrNotFound if the message doesn't exist.
+	GetMessage(ctx context.Context, id string) (*Message, error)
+
+	// ListMessages returns messages matching the given filter.
+	// Results are ordered by created_at DESC.
+	ListMessages(ctx context.Context, filter MessageFilter, opts ListOptions) (*ListResult[Message], error)
+
+	// MarkMessageRead marks a message as read.
+	// Returns ErrNotFound if the message doesn't exist.
+	MarkMessageRead(ctx context.Context, id string) error
+
+	// MarkAllMessagesRead marks all messages for a recipient as read.
+	MarkAllMessagesRead(ctx context.Context, recipientID string) error
+
+	// PurgeOldMessages removes read messages older than readCutoff and
+	// unread messages older than unreadCutoff. Returns count removed.
+	PurgeOldMessages(ctx context.Context, readCutoff time.Time, unreadCutoff time.Time) (int, error)
 }

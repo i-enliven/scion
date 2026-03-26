@@ -1,0 +1,191 @@
+// Copyright 2026 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//go:build !no_sqlite
+
+package sqlite
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/GoogleCloudPlatform/scion/pkg/api"
+	"github.com/GoogleCloudPlatform/scion/pkg/store"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func newTestMessage(groveID, agentID string) *store.Message {
+	return &store.Message{
+		ID:          api.NewUUID(),
+		GroveID:     groveID,
+		Sender:      "user:alice",
+		SenderID:    "user-uuid-alice",
+		Recipient:   "agent:coder",
+		RecipientID: agentID,
+		Msg:         "Please fix the auth module.",
+		Type:        "instruction",
+		AgentID:     agentID,
+		CreatedAt:   time.Now().UTC().Truncate(time.Second),
+	}
+}
+
+func TestMessageCRUD(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	groveID, agentID := createTestGroveAndAgent(t, s)
+	msg := newTestMessage(groveID, agentID)
+
+	// Create
+	require.NoError(t, s.CreateMessage(ctx, msg))
+
+	// Get
+	got, err := s.GetMessage(ctx, msg.ID)
+	require.NoError(t, err)
+	assert.Equal(t, msg.ID, got.ID)
+	assert.Equal(t, msg.GroveID, got.GroveID)
+	assert.Equal(t, msg.Sender, got.Sender)
+	assert.Equal(t, msg.Recipient, got.Recipient)
+	assert.Equal(t, msg.Msg, got.Msg)
+	assert.Equal(t, msg.Type, got.Type)
+	assert.Equal(t, msg.AgentID, got.AgentID)
+	assert.False(t, got.Read)
+
+	// Duplicate create returns ErrAlreadyExists
+	err = s.CreateMessage(ctx, msg)
+	assert.ErrorIs(t, err, store.ErrAlreadyExists)
+
+	// Not found
+	_, err = s.GetMessage(ctx, "nonexistent")
+	assert.ErrorIs(t, err, store.ErrNotFound)
+}
+
+func TestMessageMarkRead(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	groveID, agentID := createTestGroveAndAgent(t, s)
+	msg := newTestMessage(groveID, agentID)
+	require.NoError(t, s.CreateMessage(ctx, msg))
+
+	// Mark single message as read
+	require.NoError(t, s.MarkMessageRead(ctx, msg.ID))
+	got, err := s.GetMessage(ctx, msg.ID)
+	require.NoError(t, err)
+	assert.True(t, got.Read)
+
+	// Mark not-found returns ErrNotFound
+	assert.ErrorIs(t, s.MarkMessageRead(ctx, "nonexistent"), store.ErrNotFound)
+}
+
+func TestMessageMarkAllRead(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	groveID, agentID := createTestGroveAndAgent(t, s)
+
+	// Create two messages for the same recipient
+	recipientID := agentID
+	msg1 := newTestMessage(groveID, agentID)
+	msg1.RecipientID = recipientID
+	msg2 := newTestMessage(groveID, agentID)
+	msg2.ID = api.NewUUID()
+	msg2.RecipientID = recipientID
+	require.NoError(t, s.CreateMessage(ctx, msg1))
+	require.NoError(t, s.CreateMessage(ctx, msg2))
+
+	require.NoError(t, s.MarkAllMessagesRead(ctx, recipientID))
+
+	got1, err := s.GetMessage(ctx, msg1.ID)
+	require.NoError(t, err)
+	assert.True(t, got1.Read)
+
+	got2, err := s.GetMessage(ctx, msg2.ID)
+	require.NoError(t, err)
+	assert.True(t, got2.Read)
+}
+
+func TestListMessages(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	groveID, agentID := createTestGroveAndAgent(t, s)
+
+	// Create unread message
+	unread := newTestMessage(groveID, agentID)
+	require.NoError(t, s.CreateMessage(ctx, unread))
+
+	// Create read message
+	read := newTestMessage(groveID, agentID)
+	read.ID = api.NewUUID()
+	require.NoError(t, s.CreateMessage(ctx, read))
+	require.NoError(t, s.MarkMessageRead(ctx, read.ID))
+
+	// List all
+	result, err := s.ListMessages(ctx, store.MessageFilter{GroveID: groveID}, store.ListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 2, result.TotalCount)
+	assert.Len(t, result.Items, 2)
+
+	// List unread only
+	result, err = s.ListMessages(ctx, store.MessageFilter{GroveID: groveID, OnlyUnread: true}, store.ListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.TotalCount)
+	assert.Len(t, result.Items, 1)
+	assert.Equal(t, unread.ID, result.Items[0].ID)
+
+	// Filter by agent
+	result, err = s.ListMessages(ctx, store.MessageFilter{AgentID: agentID}, store.ListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 2, result.TotalCount)
+
+	// Filter by type
+	result, err = s.ListMessages(ctx, store.MessageFilter{Type: "instruction"}, store.ListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 2, result.TotalCount)
+
+	result, err = s.ListMessages(ctx, store.MessageFilter{Type: "input-needed"}, store.ListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.TotalCount)
+}
+
+func TestPurgeOldMessages(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	groveID, agentID := createTestGroveAndAgent(t, s)
+
+	old := newTestMessage(groveID, agentID)
+	old.CreatedAt = time.Now().Add(-40 * 24 * time.Hour)
+	require.NoError(t, s.CreateMessage(ctx, old))
+	require.NoError(t, s.MarkMessageRead(ctx, old.ID))
+
+	recent := newTestMessage(groveID, agentID)
+	recent.ID = api.NewUUID()
+	require.NoError(t, s.CreateMessage(ctx, recent))
+
+	readCutoff := time.Now().Add(-30 * 24 * time.Hour)
+	unreadCutoff := time.Now().Add(-90 * 24 * time.Hour)
+	n, err := s.PurgeOldMessages(ctx, readCutoff, unreadCutoff)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n)
+
+	_, err = s.GetMessage(ctx, old.ID)
+	assert.ErrorIs(t, err, store.ErrNotFound)
+
+	_, err = s.GetMessage(ctx, recent.ID)
+	assert.NoError(t, err)
+}
