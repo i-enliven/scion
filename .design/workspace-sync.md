@@ -417,15 +417,15 @@ CREATE TABLE grove_sync_state (
 - ✅ Add `grove_sync_state` table for tracking sync metadata
 - ✅ Add `GET /api/v1/groves/{id}/sync/status` endpoint
 
-### Phase 2: CLI Grove Sync Command
+### Phase 2: CLI Grove Sync Command ✅ Complete
 
-- Add `scion sync` (bare), `scion sync push`, `scion sync pull` subcommands
-- Integrate rclone WebDAV backend for hub communication
-- Wire up rclone bisync for bidirectional default
-- Wire up rclone sync for one-directional push/pull
-- Pass through rclone progress output
-- Support `--dry-run`, `--exclude`, `--force` flags
-- Grove resolution via `-g` flag or cwd
+- ✅ Add `scion sync` (bare), `scion sync push`, `scion sync pull` subcommands
+- ✅ Integrate rclone WebDAV backend for hub communication
+- ✅ Wire up rclone bisync for bidirectional default
+- ✅ Wire up rclone sync for one-directional push/pull
+- ✅ Pass through rclone progress output
+- ✅ Support `--dry-run`, `--exclude`, `--force` flags
+- ✅ Grove resolution via `-g` flag or cwd
 
 ### Phase 3: Linked Grove Relay
 
