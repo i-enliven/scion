@@ -64,7 +64,6 @@ const ADMIN_SECTION: NavSection = {
     { path: '/settings', label: 'Hub Settings', icon: 'gear' },
     { path: '/admin/server-config', label: 'Server Config', icon: 'sliders' },
     { path: '/admin/scheduler', label: 'Scheduler', icon: 'clock' },
-    { path: '/admin/maintenance', label: 'Maintenance', icon: 'wrench-adjustable' },
     { path: '/admin/users', label: 'Users', icon: 'people' },
     { path: '/admin/groups', label: 'Groups', icon: 'diagram-3' },
   ],
@@ -274,6 +273,17 @@ export class ScionNav extends LitElement {
       display: none;
     }
 
+    .maintenance-help {
+      font-size: 0.75rem;
+      color: var(--scion-text-muted, #64748b);
+      padding: 0.25rem 0.75rem 0.5rem;
+      line-height: 1.4;
+    }
+
+    :host([collapsed]) .maintenance-help {
+      display: none;
+    }
+
     .toggle-track {
       position: relative;
       width: 36px;
@@ -360,6 +370,36 @@ export class ScionNav extends LitElement {
         ${isAdmin
           ? html`
               <div class="nav-section admin-section">
+                <div class="nav-section-title">Maintenance</div>
+                <div class="maintenance-toggle">
+                  <sl-icon name="exclamation-triangle"></sl-icon>
+                  <span class="maintenance-toggle-label">Maintenance Mode</span>
+                  <button
+                    class="toggle-track ${this.maintenanceEnabled ? 'active' : ''}"
+                    @click=${() => { this.toggleMaintenance(); }}
+                    aria-label="Toggle maintenance mode"
+                  >
+                    <span class="toggle-knob"></span>
+                  </button>
+                </div>
+                <div class="maintenance-help">
+                  When enabled, only admins can log in. All other users will be
+                  temporarily blocked.
+                </div>
+                <ul class="nav-list">
+                  <li class="nav-item">
+                    <a
+                      href="/admin/maintenance"
+                      class="nav-link ${this.isActive('/admin/maintenance') ? 'active' : ''}"
+                      @click=${(e: Event) => this.handleNavClick(e, '/admin/maintenance')}
+                    >
+                      <sl-icon name="wrench-adjustable"></sl-icon>
+                      <span class="nav-link-text">Maintenance</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div class="nav-section">
                 <div class="nav-section-title">${ADMIN_SECTION.title}</div>
                 <ul class="nav-list">
                   ${ADMIN_SECTION.items.map(
@@ -377,17 +417,6 @@ export class ScionNav extends LitElement {
                     `
                   )}
                 </ul>
-                <div class="maintenance-toggle">
-                  <sl-icon name="exclamation-triangle"></sl-icon>
-                  <span class="maintenance-toggle-label">Maintenance</span>
-                  <button
-                    class="toggle-track ${this.maintenanceEnabled ? 'active' : ''}"
-                    @click=${() => { this.toggleMaintenance(); }}
-                    aria-label="Toggle maintenance mode"
-                  >
-                    <span class="toggle-knob"></span>
-                  </button>
-                </div>
               </div>
             `
           : ''}
