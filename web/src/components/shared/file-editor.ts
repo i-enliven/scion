@@ -31,8 +31,9 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { apiFetch, extractApiError } from '../../client/api.js';
 import { getLanguageFromPath } from './code-editor.js';
 
-// Ensure code-editor is registered
+// Ensure sub-components are registered
 import './code-editor.js';
+import './markdown-preview.js';
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -138,6 +139,10 @@ export class ScionFileEditor extends LitElement {
   @property({ type: Boolean })
   readonly = false;
 
+  /** Open directly in preview mode (used by eye icon on .md files). */
+  @property({ type: Boolean })
+  initialPreview = false;
+
   // ── Internal state ──
 
   @state() private originalContent = '';
@@ -149,6 +154,7 @@ export class ScionFileEditor extends LitElement {
   @state() private saveSuccess = false;
   @state() private newFileName = '';
   @state() private newFileError = '';
+  @state() private showPreview = false;
 
   /** Whether the editor has unsaved changes. */
   get dirty(): boolean {
@@ -158,6 +164,12 @@ export class ScionFileEditor extends LitElement {
   /** Whether this is a new file creation flow. */
   get isNewFile(): boolean {
     return !this.filePath;
+  }
+
+  /** Whether the current file is markdown. */
+  private get isMarkdown(): boolean {
+    const path = this.isNewFile ? this.newFileName : this.filePath;
+    return path.toLowerCase().endsWith('.md');
   }
 
   static override styles = css`
@@ -266,6 +278,9 @@ export class ScionFileEditor extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    if (this.initialPreview) {
+      this.showPreview = true;
+    }
     if (this.filePath && this.dataSource) {
       void this.loadFile();
     }
@@ -363,6 +378,10 @@ export class ScionFileEditor extends LitElement {
     this.error = null;
   }
 
+  private handleTogglePreview(): void {
+    this.showPreview = !this.showPreview;
+  }
+
   private handleClose(): void {
     if (this.dirty) {
       if (!confirm('You have unsaved changes. Close anyway?')) return;
@@ -402,14 +421,20 @@ export class ScionFileEditor extends LitElement {
               <p>Loading file...</p>
             </div>
           `
-        : html`
-            <scion-code-editor
-              .content=${this.currentContent}
-              .language=${getLanguageFromPath(this.isNewFile ? this.newFileName : this.filePath)}
-              ?readonly=${this.readonly}
-              @content-changed=${this.handleContentChanged}
-            ></scion-code-editor>
-          `}
+        : this.showPreview && this.isMarkdown
+          ? html`
+              <scion-markdown-preview
+                .content=${this.currentContent}
+              ></scion-markdown-preview>
+            `
+          : html`
+              <scion-code-editor
+                .content=${this.currentContent}
+                .language=${getLanguageFromPath(this.isNewFile ? this.newFileName : this.filePath)}
+                ?readonly=${this.readonly}
+                @content-changed=${this.handleContentChanged}
+              ></scion-code-editor>
+            `}
     `;
   }
 
@@ -459,6 +484,18 @@ export class ScionFileEditor extends LitElement {
                 >
                   <sl-icon slot="prefix" name="arrow-counterclockwise"></sl-icon>
                   Revert
+                </sl-button>
+              `
+            : nothing}
+          ${this.isMarkdown
+            ? html`
+                <sl-button
+                  size="small"
+                  variant=${this.showPreview ? 'primary' : 'default'}
+                  @click=${this.handleTogglePreview}
+                >
+                  <sl-icon slot="prefix" name=${this.showPreview ? 'code' : 'eye'}></sl-icon>
+                  ${this.showPreview ? 'Edit' : 'Preview'}
                 </sl-button>
               `
             : nothing}

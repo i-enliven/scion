@@ -88,6 +88,9 @@ export default defineConfig({
                     if (id.includes('node_modules/@codemirror') || id.includes('node_modules/@lezer')) {
                         return 'codemirror';
                     }
+                    if (id.includes('node_modules/marked') || id.includes('node_modules/dompurify')) {
+                        return 'markdown';
+                    }
                     if (id.includes('node_modules/@xterm')) {
                         // Basename without extension for stable chunk names
                         const match = id.match(/@xterm\/([^/]+)/);

@@ -41,13 +41,15 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
-    "lit": "^3.1.2"
+    "dompurify": "^3.3.3",
+    "lit": "^3.1.2",
+    "marked": "^17.0.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "bootstrap-icons": "^1.11.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
+    "bootstrap-icons": "^1.11.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",

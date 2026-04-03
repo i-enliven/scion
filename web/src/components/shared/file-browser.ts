@@ -258,6 +258,10 @@ function isEditable(filePath: string, fileSize: number): boolean {
   return EDITABLE_EXTENSIONS.has(ext);
 }
 
+function isMarkdownFile(filePath: string): boolean {
+  return filePath.toLowerCase().endsWith('.md');
+}
+
 function isPreviewable(filePath: string): boolean {
   const ext = filePath.includes('.') ? '.' + filePath.split('.').pop()!.toLowerCase() : '';
   return PREVIEWABLE_EXTENSIONS.has(ext);
@@ -589,6 +593,17 @@ export class ScionFileBrowser extends LitElement {
 
   private handlePreview(filePath: string): void {
     if (!this.dataSource) return;
+    // Markdown files get inline preview via the editor component
+    if (isMarkdownFile(filePath)) {
+      this.dispatchEvent(
+        new CustomEvent('file-preview-requested', {
+          detail: { path: filePath },
+          bubbles: true,
+          composed: true,
+        })
+      );
+      return;
+    }
     window.open(this.dataSource.getPreviewUrl(filePath), '_blank');
   }
 

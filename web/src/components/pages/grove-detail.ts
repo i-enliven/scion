@@ -138,6 +138,12 @@ export class ScionPageGroveDetail extends LitElement {
   private editingFilePath: string | null = null;
 
   /**
+   * Whether to open the editor initially in preview mode (for .md eye icon)
+   */
+  @state()
+  private editorInitialPreview = false;
+
+  /**
    * Per-tab editor data sources keyed by tab name
    */
   private editorDataSources: Record<string, FileEditorDataSource> = {};
@@ -789,14 +795,22 @@ export class ScionPageGroveDetail extends LitElement {
 
   private handleFileEditRequested(e: CustomEvent<{ path: string }>): void {
     this.editingFilePath = e.detail.path;
+    this.editorInitialPreview = false;
+  }
+
+  private handleFilePreviewRequested(e: CustomEvent<{ path: string }>): void {
+    this.editingFilePath = e.detail.path;
+    this.editorInitialPreview = true;
   }
 
   private handleFileCreateRequested(): void {
     this.editingFilePath = '';
+    this.editorInitialPreview = false;
   }
 
   private handleEditorClosed(): void {
     this.editingFilePath = null;
+    this.editorInitialPreview = false;
   }
 
   private handleFileSaved(): void {
@@ -1189,6 +1203,7 @@ export class ScionPageGroveDetail extends LitElement {
                 .filePath=${this.editingFilePath || ''}
                 .dataSource=${this.getEditorDataSource(this.activeFileTab)}
                 ?readonly=${!isEditable}
+                ?initialPreview=${this.editorInitialPreview}
                 @file-saved=${this.handleFileSaved}
                 @editor-closed=${this.handleEditorClosed}
               ></scion-file-editor>
@@ -1212,6 +1227,7 @@ export class ScionPageGroveDetail extends LitElement {
                           ?editable=${isEditable}
                           ?showArchive=${tab.key === 'workspace'}
                           @file-edit-requested=${this.handleFileEditRequested}
+                          @file-preview-requested=${this.handleFilePreviewRequested}
                           @file-create-requested=${this.handleFileCreateRequested}
                         ></scion-file-browser>
                       </sl-tab-panel>
