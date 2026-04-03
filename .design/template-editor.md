@@ -24,14 +24,13 @@ This design re-purposes the existing workspace file browser component to display
 ### Scope
 
 This document covers:
-- Expanding a template in grove settings to show a file browser
-- Re-using the workspace file browser for template contents
-- Integrating the file editor for template file editing
+- A dedicated template detail page for browsing and editing template files
+- Re-using the shared `scion-file-browser` and `scion-file-editor` components (from [web-file-editor.md](./web-file-editor.md))
 - API changes needed to support reading/writing individual template files
 - Template versioning considerations
 
 This document does NOT cover:
-- The file editor component itself (see [web-file-editor.md](./web-file-editor.md))
+- The file browser or file editor components themselves (see [web-file-editor.md](./web-file-editor.md))
 - Template metadata editing (name, description, harness — already supported via PATCH)
 - Template creation or import workflows (already implemented)
 
@@ -39,64 +38,57 @@ This document does NOT cover:
 
 ## 2. User Experience
 
-### 2.1 Template Expansion in Grove Settings
+### 2.1 Template Detail Page
 
-Currently, clicking a template in the Resources > Templates list does nothing. The proposed change:
+Currently, clicking a template in the Resources > Templates list does nothing. The proposed change adds a dedicated template detail page at `/groves/{groveId}/templates/{templateId}`.
 
+**Template List (grove settings):**
+- Clicking a template row navigates to the template detail page.
+- A back/breadcrumb link provides clear navigation back to grove settings.
+
+**Template Detail Page:**
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Resources  [Env Vars] [Secrets] [Shared Dirs] [Templates]│
+│ ← Grove Settings > Templates > my-custom-agent          │
 ├─────────────────────────────────────────────────────────┤
+│ my-custom-agent    Custom research agent        claude   │
 │                                                         │
-│  ▶ claude-default     Claude agent template    claude    │
-│  ▼ my-custom-agent    Custom research agent    claude    │
-│  ┌─────────────────────────────────────────────────────┐│
-│  │ Template Files                        [↻] [Upload]  ││
-│  │                                                     ││
-│  │  📄 CLAUDE.md                1.2 KB   ✏️  👁  ⬇     ││
-│  │  📄 home/.bashrc              340 B   ✏️  👁  ⬇     ││
-│  │  📄 home/.config/settings.json 89 B   ✏️  👁  ⬇     ││
-│  │  📄 system-prompt.md         2.1 KB   ✏️  👁  ⬇     ││
-│  │                                                     ││
-│  └─────────────────────────────────────────────────────┘│
-│  ▶ data-analyst       Data analysis template   gemini   │
+│ Template Files                           [↻] [Upload]   │
+│                                                         │
+│  📄 CLAUDE.md                1.2 KB      ✏️  👁  ⬇      │
+│  📄 home/.bashrc              340 B      ✏️  👁  ⬇      │
+│  📄 home/.config/settings.json 89 B      ✏️  👁  ⬇      │
+│  📄 system-prompt.md         2.1 KB      ✏️  👁  ⬇      │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
 
 **Behavior:**
-- Clicking a template row toggles expansion (accordion-style, one template expanded at a time).
-- The expanded area shows the template's file tree using a re-purposed version of the workspace file browser component.
+- The page shows template metadata (name, description, harness) and the file browser below.
+- The file browser uses the shared `scion-file-browser` component with a `TemplateFileBrowserDataSource`.
 - File actions mirror the workspace browser: edit (pencil), preview (eye), download.
 - Upload button allows adding new files to the template.
-- Locked templates show a lock icon and disable edit/upload/delete actions.
+- Editing a file opens the shared `scion-file-editor` in full-width replacement mode (same pattern as workspace editing).
 
 ### 2.2 File Browser Re-Use
 
-The workspace file browser in `grove-detail.ts` renders a file table with columns: Name, Size, Modified, Actions. This same table structure is re-used for template files, with adaptations:
+The template detail page uses the shared `scion-file-browser` component (extracted from `grove-detail.ts` as part of [web-file-editor.md](./web-file-editor.md)). The only differences are in the data source adapter:
 
 | Aspect | Workspace Browser | Template Browser |
 |--------|------------------|------------------|
 | Data source | Workspace filesystem API | Template file manifest + content API |
-| File actions | Preview, Download, Delete, Edit | Preview, Download, Delete, Edit |
-| Upload | Multipart file upload | Signed URL upload |
-| Archive download | ZIP of workspace | ZIP of template (stretch) |
+| Upload | Multipart file upload | Multipart file upload (proxied through Hub, consistent with workspace) |
 | Sorting | By name, size, modified | By name, size (no modTime on template files currently) |
 | Path display | Relative to workspace root | Relative to template root |
-| Permission gate | Grove `update` capability | Template `update` capability + not locked |
-
-**Componentization approach:**
-
-Extract the file table rendering from `grove-detail.ts` into a shared `scion-file-browser` component that accepts a data source adapter. Both the workspace page and the template expansion use this shared component with different adapters.
+| File list style | Flat list | Flat list |
+| Permission gate | Grove `update` capability | Template `update` capability |
 
 ### 2.3 Editing Template Files
 
 Clicking the pencil icon on a template file opens the shared `scion-file-editor` component (from [web-file-editor.md](./web-file-editor.md)).
 
 **Key differences from workspace file editing:**
-- **Save** writes back through the template file API (not the workspace API).
-- **Versioning** — saving a template file may create a new template version (see Section 5).
-- **Locked templates** — editor opens in read-only mode with a banner explaining the template is locked.
+- **Save** writes back through the template file API (not the workspace API), via the `TemplateFileBrowserDataSource`.
 - **Scope awareness** — global templates may be viewable but not editable by grove-scoped users.
 
 ### 2.4 Navigation Flow
@@ -104,13 +96,13 @@ Clicking the pencil icon on a template file opens the shared `scion-file-editor`
 ```
 Grove Settings Page
   └── Resources > Templates tab
-        └── Click template row → expand file browser
-              └── Click pencil icon → open file editor
-                    └── Save → write to template storage
-                    └── Close → return to file browser
+        └── Click template row → navigate to /groves/{id}/templates/{templateId}
+              └── Template Detail Page (metadata + file browser)
+                    └── Click pencil icon → full-width editor replaces file browser
+                          └── Save → write to template storage
+                          └── Close → return to file browser
+                    └── ← Back → return to grove settings
 ```
-
-The editor replaces the template file browser content (same full-width replacement pattern as the workspace editor, per [web-file-editor.md](./web-file-editor.md)).
 
 ---
 
@@ -178,9 +170,9 @@ POST /api/v1/templates/{templateId}/files
 Content-Type: multipart/form-data
 ```
 
-- Accepts one or more files.
+- Accepts one or more files with path metadata.
 - Adds to template storage and manifest.
-- Alternative: continue using the existing signed-URL upload flow but expose it better in the UI.
+- Uses the same multipart upload pattern as the workspace file upload (not signed URLs) for consistency.
 
 ### 3.5 Template File Listing
 
@@ -209,60 +201,33 @@ This avoids the overhead of generating signed URLs when we just need to display 
 
 ## 4. Component Architecture
 
-### 4.1 Shared File Browser Extraction
+### 4.1 Template Detail Page
 
-Extract from `grove-detail.ts` into a reusable component:
+A new page component at the route `/groves/{groveId}/templates/{templateId}`:
 
 ```
-scion-file-browser (new shared component)
+scion-template-detail (new page component)
 ├── Properties:
-│   files: FileEntry[]
-│   loading: boolean
-│   error: string | null
-│   editable: boolean
-│   sortField / sortDirection
-├── Events:
-│   file-edit-requested (filePath)
-│   file-preview-requested (filePath)
-│   file-download-requested (filePath)
-│   file-delete-requested (filePath)
-│   file-upload-requested ()
-│   sort-changed (field, direction)
-└── Slots:
-    toolbar-actions (for context-specific buttons)
+│   groveId: string
+│   templateId: string
+├── Children:
+│   breadcrumb navigation (back to grove settings)
+│   template metadata header (name, description, harness)
+│   scion-file-browser (with TemplateFileBrowserDataSource)
+│   scion-file-editor (opened on edit request, replaces file browser)
 ```
 
-**Data Source Adapters:**
+### 4.2 Template Data Source
+
 ```typescript
-interface FileBrowserDataSource {
-  listFiles(): Promise<FileEntry[]>;
-  getFileContent(path: string): Promise<{ content: string; meta: FileMeta }>;
-  saveFileContent(path: string, content: string, expectedVersion?: string): Promise<FileMeta>;
-  deleteFile(path: string): Promise<void>;
-  uploadFiles(files: File[]): Promise<FileEntry[]>;
-  downloadFile(path: string): void;
+// New adapter implementing the FileBrowserDataSource interface
+// (defined in web-file-editor.md)
+class TemplateFileBrowserDataSource implements FileBrowserDataSource {
+  // Uses /api/v1/templates/{id}/files/... endpoints
 }
 ```
 
-Implementations:
-- `WorkspaceFileBrowserDataSource` — uses `/api/v1/groves/{id}/workspace/files/...`
-- `SharedDirFileBrowserDataSource` — uses `/api/v1/groves/{id}/shared-dirs/{name}/files/...`
-- `TemplateFileBrowserDataSource` — uses `/api/v1/templates/{id}/files/...`
-
-### 4.2 Template Expansion Component
-
-```
-scion-template-detail (new component, used within grove-settings.ts)
-├── Properties:
-│   template: Template
-│   expanded: boolean
-│   capabilities: Capabilities
-├── Children:
-│   scion-file-browser (with TemplateFileBrowserDataSource)
-│   scion-file-editor (opened on edit request)
-└── Events:
-    template-toggle (templateId)
-```
+The shared `scion-file-browser` and `scion-file-editor` components are prerequisites — built as part of [web-file-editor.md](./web-file-editor.md).
 
 ---
 
@@ -298,68 +263,57 @@ Inline editing introduces mutable template files, which conflicts with the curre
 - User explicitly "publishes" the draft to make it active.
 - Provides a review step but adds UX friction.
 
-**Recommendation:** Start with **Approach A** (mutable active templates) for simplicity. The content hash update mechanism already exists and brokers use it for cache invalidation. Add versioning (Approach B) as a later enhancement when the need for rollback becomes clear.
+**Decision:** Start with **Approach A** (mutable active templates) for simplicity. The content hash update mechanism already exists and brokers use it for cache invalidation. Add versioning (Approach B) as a later enhancement when the need for rollback becomes clear.
 
-### 5.3 Locked Template Handling
+**Important clarification:** Template mutability only affects *new* agents created from the template. Already-created/running agents are not affected by template edits — their files were copied at creation time.
 
-- Locked templates (`locked: true`) are read-only. The file browser shows files but all mutation actions (edit, delete, upload) are disabled.
-- Global templates are typically locked. Grove-scoped templates are not.
-- The UI should display a clear lock indicator with explanation text.
+**Open investigation:** Does a broker check for template content hash changes each time it creates an agent, or does it rely on a cached copy? This affects how quickly edits propagate to new agent creation. Needs further investigation.
+
+### 5.3 Locked Template Cleanup
+
+The `locked` field on templates was introduced speculatively in earlier designs but is not meaningfully used in the current implementation. Rather than building UI around it, the locked template concept should be cleaned out as tech debt until it can be reintroduced more thoughtfully. This is tracked separately from the template editor work.
 
 ---
 
-## 6. Open Questions
+## 6. Decisions
 
-1. **Accordion vs. dedicated page** — Should clicking a template expand inline (accordion) or navigate to a dedicated template detail page (`/groves/{id}/templates/{templateId}`)? Accordion keeps context but may feel cramped for templates with many files. A dedicated page offers more space but adds navigation.
+| Question | Decision |
+|----------|----------|
+| Accordion vs. dedicated page | Dedicated page (`/groves/{id}/templates/{templateId}`) with clear breadcrumb navigation |
+| File tree vs. flat list | Flat list of full paths for now |
+| Template file upload UX | Use workspace-style multipart upload (consistent, simpler) |
+| Shared component extraction timing | File browser + editor extracted first as part of [web-file-editor.md](./web-file-editor.md), before template editor work begins |
+| Locked templates | Clean out `locked` field as tech debt (see Section 5.3) |
 
-2. **Template file tree vs. flat list** — Templates can have nested paths (e.g., `home/.config/settings.json`). Should the browser show a tree view (collapsible directories) or a flat list of full paths? The workspace browser currently uses a flat list. A tree is nicer for deeply nested templates but adds complexity.
+### Open Investigation
 
-3. **Re-use scope** — How far should the file browser abstraction go? Should it also be reused for the agent home directory viewer (if that's ever added)? Over-abstracting early risks building the wrong abstraction.
-
-4. **Template file upload UX** — The current template upload uses signed URLs (two-phase). For the inline browser, should we proxy uploads through the Hub (simpler UX, consistent with workspace upload) or keep the signed-URL flow (better for large files)?
-
-5. **Multi-broker cache invalidation** — When a template file is edited, the content hash changes. How quickly do brokers pick up the change? Is there an explicit invalidation mechanism or is it polling-based? This affects the user's expectation of "I saved, so new agents should use the updated template."
-
-6. **Shared component extraction timing** — Should we extract `scion-file-browser` from `grove-detail.ts` before implementing the template browser, or build the template browser first and extract later? Extracting first is cleaner but delays the template feature.
+- **Multi-broker cache invalidation** — When a template file is edited, the content hash changes. How quickly do brokers pick up the change? Need to investigate whether brokers check the hash on each agent creation or cache templates locally.
 
 ---
 
 ## 7. Implementation Phases
 
-### Phase 1: Template File Browsing (Read-Only)
+*All phases below depend on [web-file-editor.md](./web-file-editor.md) Phases 1–2 being complete (shared file browser + core editor).*
+
+### Phase 1: Template File Browsing & Editing
 
 - [ ] Add `GET /api/v1/templates/{templateId}/files` listing endpoint
 - [ ] Add `GET /api/v1/templates/{templateId}/files/{filePath}` content endpoint
-- [ ] Add `scion-template-detail` component with accordion expansion in grove settings
-- [ ] Display template files in a table (reuse markup patterns from workspace browser, but not yet extracted as shared component)
-- [ ] File download via existing signed-URL mechanism
-- [ ] Eye icon for file preview (new tab for now)
-
-### Phase 2: Template File Editing
-
-*Depends on: [web-file-editor.md](./web-file-editor.md) Phase 1 (core editor)*
-
 - [ ] Add `PUT /api/v1/templates/{templateId}/files/{filePath}` write endpoint
 - [ ] Add `DELETE /api/v1/templates/{templateId}/files/{filePath}` delete endpoint
-- [ ] Integrate `scion-file-editor` into template detail view
-- [ ] Pencil icon on template files (gated on capabilities + not locked)
-- [ ] Lock indicator for locked/global templates
+- [ ] Implement `TemplateFileBrowserDataSource` adapter
+- [ ] Add `scion-template-detail` page component with route `/groves/{id}/templates/{templateId}`
+- [ ] Breadcrumb navigation back to grove settings
+- [ ] Wire template list rows in grove settings to navigate to detail page
+- [ ] Integrate `scion-file-browser` and `scion-file-editor` on detail page
+- [ ] Gate edit/delete/upload on `update` capability
 - [ ] Content hash recomputation on save
 
-### Phase 3: Shared Component Extraction
+### Phase 2: Upload & Polish
 
-*Depends on: Phase 2 + [web-file-editor.md](./web-file-editor.md) Phase 1 workspace integration*
-
-- [ ] Extract `scion-file-browser` shared component from `grove-detail.ts`
-- [ ] Implement `FileBrowserDataSource` adapter pattern
-- [ ] Refactor workspace browser to use shared component
-- [ ] Refactor template browser to use shared component
-- [ ] Refactor shared-dir browser to use shared component
-
-### Phase 4: Polish
-
-- [ ] Template file upload (add files to existing template)
-- [ ] Markdown preview for template `.md` files via eye icon
+- [ ] Add `POST /api/v1/templates/{templateId}/files` upload endpoint (multipart)
+- [ ] Template file upload UI via file browser toolbar
+- [ ] Markdown preview for template `.md` files via eye icon (if [web-file-editor.md](./web-file-editor.md) Phase 3 is complete)
 - [ ] Tree view for nested template file structures (stretch)
 - [ ] Template ZIP download (stretch)
 
@@ -367,7 +321,6 @@ Inline editing introduces mutable template files, which conflicts with the curre
 
 ## 8. Dependencies
 
-- **Web File Editor** ([web-file-editor.md](./web-file-editor.md)) — the editor component is a prerequisite for Phase 2.
+- **Web File Editor & File Browser** ([web-file-editor.md](./web-file-editor.md)) — the shared `scion-file-browser` and `scion-file-editor` components are prerequisites for all phases of this design. That work is sequenced first.
 - **Template API** — existing CRUD and download endpoints. New file-level endpoints needed.
 - **Storage layer** — `pkg/storage/` must support reading individual files by path (currently supports full-prefix operations).
-- **Shoelace icons** — `chevron-right`, `chevron-down` (for accordion), `lock` (for locked templates). Check if already in `USED_ICONS`.

@@ -1,4 +1,4 @@
-# Web-Based File Editor
+# Web-Based File Editor & File Browser
 
 **Status:** Draft
 **Created:** 2026-04-03
@@ -10,15 +10,21 @@
 
 ### Goal
 
-Add an inline file editor to the web UI that supports editing raw text formats (markdown, JSON, YAML, TOML, shell scripts, Go, TypeScript, etc.) with syntax highlighting. The editor is a shared component consumed by both the workspace/shared-dir file browser and the template editor.
+Add an inline file editor to the web UI that supports editing raw text formats (markdown, JSON, YAML, TOML, shell scripts, Go, TypeScript, etc.) with syntax highlighting. Alongside the editor, extract the file browser from `grove-detail.ts` into a shared `scion-file-browser` component. Together, the file browser and file editor form a reusable pair consumed by the workspace/shared-dir views and the template editor ([template-editor.md](./template-editor.md)).
 
 ### Current State
 
-The workspace file browser (`grove-detail.ts`) supports file listing, upload, download, delete, and external preview (opens a new browser tab via `?view=true`). There is no inline viewing or editing. Clicking the eye icon opens the raw file in a new tab. There is no pencil/edit icon.
+The workspace file browser (`grove-detail.ts`) supports file listing, upload, download, delete, and external preview (opens a new browser tab via `?view=true`). There is no inline viewing or editing. Clicking the eye icon opens the raw file in a new tab. There is no pencil/edit icon. The file browser is embedded directly in `grove-detail.ts` with no reusable abstraction.
 
 ### Scope
 
-This document covers the editor component itself, its integration into the existing workspace file browser, and the API changes needed to support reading and writing file content. The template editor integration is documented separately in [template-editor.md](./template-editor.md).
+This document covers:
+- The shared `scion-file-browser` component (extracted from `grove-detail.ts`)
+- The `scion-file-editor` component and its integration into the workspace file browser
+- API changes needed to support reading and writing file content
+- New file creation flow
+
+The template editor integration is documented separately in [template-editor.md](./template-editor.md) and depends on the shared components built here.
 
 ---
 
@@ -31,6 +37,7 @@ This document covers the editor component itself, its integration into the exist
 - A new **pencil icon** (`pencil`) is added to each file row's action column, between the existing eye (preview) and download icons.
 - Clicking the pencil opens the file in the inline editor panel.
 - The pencil icon is shown for all text-editable file types (see Section 2.4). For non-editable types (images, PDFs, binaries), the pencil is hidden or disabled.
+- A **"New File"** button in the file browser toolbar allows creating files from scratch — opens the editor with an empty buffer and a filename input.
 
 **Markdown Preview (Eye Icon):**
 
@@ -74,7 +81,7 @@ The editor opens as a panel within the existing page, replacing or overlaying th
 - Simpler implementation. Maximizes editor real estate.
 - "Back" button returns to file list.
 
-**Recommendation:** Start with Option B (simpler) and evolve to Option A if multi-file workflows prove common.
+**Decision:** Option B (full-width replacement). Simpler implementation, maximizes editor space. Can evolve to Option A later if multi-file workflows prove common.
 
 ### 2.3 Editor Toolbar
 
@@ -236,15 +243,63 @@ Content-Type: application/json
 
 **Alternative:** Use the existing upload endpoint with `Content-Type: text/plain` body instead of multipart form. This avoids a new endpoint but changes the upload contract.
 
-### 5.3 File Size Limit for Editing
+### 5.3 Authorization
 
-Files above a threshold (e.g., 1MB) should not be opened in the editor — the browser will struggle with large text in CodeMirror. The UI should show a warning and offer download instead.
+- **Web UI access** is gated on the grove member's `update` capability — the same permission that controls file upload and delete.
+- **Agent access** is direct (agents have filesystem access to the workspace, bypassing the API).
+- **No CLI surface** is needed for this feature — it is a web-only editing capability.
+
+### 5.4 File Size Limit for Editing
+
+Files above 1MB are not opened in the editor — the UI shows a message and offers download instead. This is appropriate given the focus on text/content files (markdown, config, prompts).
 
 ---
 
 ## 6. Component Architecture
 
-### 6.1 Component Hierarchy
+### 6.1 Shared File Browser (`scion-file-browser`)
+
+Extracted from the existing file table in `grove-detail.ts` into a reusable component. This extraction happens as part of this design's implementation (not deferred).
+
+```
+scion-file-browser (LitElement)
+├── Properties:
+│   files: FileEntry[]
+│   loading: boolean
+│   error: string | null
+│   editable: boolean
+│   sortField / sortDirection
+├── Events:
+│   file-edit-requested (filePath)
+│   file-preview-requested (filePath)
+│   file-download-requested (filePath)
+│   file-delete-requested (filePath)
+│   file-upload-requested ()
+│   file-create-requested ()
+│   sort-changed (field, direction)
+└── Slots:
+    toolbar-actions (for context-specific buttons)
+```
+
+**Data Source Adapter Interface:**
+```typescript
+interface FileBrowserDataSource {
+  listFiles(): Promise<FileEntry[]>;
+  getFileContent(path: string): Promise<{ content: string; meta: FileMeta }>;
+  saveFileContent(path: string, content: string, expectedVersion?: string): Promise<FileMeta>;
+  deleteFile(path: string): Promise<void>;
+  uploadFiles(files: File[]): Promise<FileEntry[]>;
+  downloadFile(path: string): void;
+}
+```
+
+Implementations built as part of this design:
+- `WorkspaceFileBrowserDataSource` — uses `/api/v1/groves/{id}/workspace/files/...`
+- `SharedDirFileBrowserDataSource` — uses `/api/v1/groves/{id}/shared-dirs/{name}/files/...`
+
+The `TemplateFileBrowserDataSource` is added later as part of [template-editor.md](./template-editor.md).
+
+### 6.2 Component Hierarchy (Editor)
 
 ```
 scion-file-editor (LitElement)
@@ -255,24 +310,24 @@ scion-file-editor (LitElement)
     └── rendered HTML (via marked + DOMPurify)
 ```
 
-### 6.2 `scion-file-editor`
+### 6.3 `scion-file-editor`
 
 Top-level component managing the editing session.
 
 **Properties:**
-- `filePath: string` — path of the file being edited
+- `filePath: string` — path of the file being edited (empty for new file creation)
 - `groveId: string` — grove context
 - `source: 'workspace' | 'shared-dir' | 'template'` — determines API base path
 - `sourceId?: string` — shared-dir name or template ID
-- `readonly: boolean` — disables editing (e.g., locked templates, read-only shared dirs)
+- `readonly: boolean` — disables editing (e.g., read-only shared dirs)
 
 **Events:**
 - `file-saved` — emitted after successful save
 - `editor-closed` — emitted when user closes the editor
 
-### 6.3 `scion-code-editor`
+### 6.4 `scion-code-editor`
 
-Thin wrapper around CodeMirror 6.
+Thin wrapper around CodeMirror 6. Lazy-loaded — the CodeMirror bundle is fetched only when the editor is first opened.
 
 **Properties:**
 - `content: string` — initial content
@@ -282,7 +337,7 @@ Thin wrapper around CodeMirror 6.
 **Events:**
 - `content-changed` — emitted on edits (debounced), carries current content
 
-### 6.4 `scion-markdown-preview`
+### 6.5 `scion-markdown-preview`
 
 Renders markdown as sanitized HTML.
 
@@ -300,51 +355,56 @@ Renders markdown as sanitized HTML.
 
 ---
 
-## 8. Open Questions
+## 8. Decisions
 
-1. **Bundle strategy** — CodeMirror 6 is modular. Should we lazy-load the editor chunk only when the user opens a file, or include it in the main bundle? Lazy-loading is preferable but adds complexity.
-
-2. **Conflict resolution** — The `expectedModTime` optimistic locking approach is simple but coarse. If two users edit the same file, the second saver gets a 409. Should we show a diff, or just force the user to reload? For MVP, reload + retry is sufficient.
-
-3. **New file creation** — Should the editor support creating new files from scratch, or only editing existing ones? The file browser currently supports upload but not "new file." Adding a "New File" button is a natural extension but can be deferred.
-
-4. **Tab/multi-file editing** — Should the editor support opening multiple files in tabs? This is common in IDEs but adds significant complexity. Recommendation: defer, start with single-file.
-
-5. **Auto-save** — Should we auto-save drafts to localStorage to survive accidental page closes? Useful but adds complexity. Could be a Phase 2 feature.
-
-6. **Max file size for editing** — 1MB is proposed as the cutoff. Is this appropriate? CodeMirror handles multi-MB files reasonably well, but network transfer and JSON encoding add overhead.
-
-7. **Image/binary preview inline** — Should non-editable files (images) show an inline preview in the same panel? Or keep the current new-tab behavior? Inline preview is nicer but orthogonal to the editor feature.
+| Question | Decision |
+|----------|----------|
+| Bundle strategy | Lazy-load the CodeMirror editor chunk on first use |
+| Conflict resolution | On 409 Conflict, prompt user to reload and retry |
+| New file creation | Supported — "New File" button in file browser toolbar |
+| Tab/multi-file editing | Deferred — single-file editing only for now (future improvement) |
+| Auto-save to localStorage | Deferred to a later round |
+| Max file size for editing | 1MB cutoff — appropriate for text/content files |
+| Image/binary preview inline | Keep current new-tab behavior (future improvement) |
 
 ---
 
 ## 9. Implementation Phases
 
-### Phase 1: Core Editor (MVP)
+### Phase 1: Shared File Browser Extraction
 
-- [ ] Add `scion-code-editor` component wrapping CodeMirror 6 with basic language modes (markdown, JSON, YAML, shell, Go, TypeScript)
+- [ ] Extract file table rendering from `grove-detail.ts` into `scion-file-browser` component
+- [ ] Define `FileBrowserDataSource` adapter interface
+- [ ] Implement `WorkspaceFileBrowserDataSource`
+- [ ] Implement `SharedDirFileBrowserDataSource`
+- [ ] Refactor `grove-detail.ts` workspace view to use `scion-file-browser`
+- [ ] Refactor shared-dir browser to use `scion-file-browser`
+- [ ] Add "New File" button to file browser toolbar
+- [ ] Verify no regressions in existing file browser functionality
+
+### Phase 2: Core Editor
+
+- [ ] Add `scion-code-editor` component wrapping CodeMirror 6 (lazy-loaded) with basic language modes (markdown, JSON, YAML, shell, Go, TypeScript)
 - [ ] Add `scion-file-editor` component with toolbar (save, revert, close)
-- [ ] Add `PUT` endpoint for writing file content
 - [ ] Add `?format=json` support to existing download endpoint
-- [ ] Add pencil icon to workspace file browser rows
+- [ ] Add `PUT` endpoint for writing file content
+- [ ] Add pencil icon to `scion-file-browser` rows (for editable file types)
 - [ ] Full-width replacement layout (Option B)
+- [ ] "New File" creation flow via editor (filename input + empty buffer)
 - [ ] Gate on `update` capability
+- [ ] File size limit enforcement (1MB) with graceful fallback to download
 
-### Phase 2: Markdown Preview
+### Phase 3: Markdown Preview
 
 - [ ] Add `scion-markdown-preview` component with `marked` + `DOMPurify`
 - [ ] Add preview toggle button to editor toolbar for `.md` files
 - [ ] Change eye icon behavior for `.md` files to open inline preview
-- [ ] Side-by-side split view (stretch)
 
-### Phase 3: Polish & Extensions
+### Phase 4: Polish & Extensions
 
-- [ ] Lazy-load editor bundle
 - [ ] Additional language modes (Python, Rust, CSS, HTML, Dockerfile)
-- [ ] "New File" creation flow
-- [ ] Auto-save to localStorage
 - [ ] Read-only shared-dir support
-- [ ] File size limit enforcement with graceful fallback
+- [ ] Side-by-side markdown split view (stretch)
 
 ---
 
