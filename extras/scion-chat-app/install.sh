@@ -117,15 +117,21 @@ warn_prereq() {
 
 # 1. Check that the Google Chat API is enabled on the project.
 if command -v gcloud &>/dev/null; then
-    if ! gcloud services list --enabled --project="${CHAT_APP_PROJECT_ID}" \
-            --filter="name:chat.googleapis.com" --format="value(name)" 2>/dev/null \
-            | grep -q 'chat.googleapis.com'; then
-        warn_prereq \
-            "The Google Chat API does not appear to be enabled on project ${CHAT_APP_PROJECT_ID}." \
-            "Enable it with:" \
-            "  gcloud services enable chat.googleapis.com --project=${CHAT_APP_PROJECT_ID}"
+    SVC_OUTPUT="$(gcloud services list --enabled --project="${CHAT_APP_PROJECT_ID}" \
+            --filter="name:chat.googleapis.com" --format="value(name)" 2>&1)" \
+        && SVC_OK=true || SVC_OK=false
+
+    if [[ "${SVC_OK}" == "true" ]]; then
+        if echo "${SVC_OUTPUT}" | grep -q 'chat.googleapis.com'; then
+            substep "Google Chat API is enabled on project ${CHAT_APP_PROJECT_ID}"
+        else
+            warn_prereq \
+                "The Google Chat API does not appear to be enabled on project ${CHAT_APP_PROJECT_ID}." \
+                "Enable it with:" \
+                "  gcloud services enable chat.googleapis.com --project=${CHAT_APP_PROJECT_ID}"
+        fi
     else
-        substep "Google Chat API is enabled on project ${CHAT_APP_PROJECT_ID}"
+        substep "Could not query enabled services (permission issue?), skipping API check"
     fi
 else
     substep "gcloud CLI not found, skipping API enablement check"
