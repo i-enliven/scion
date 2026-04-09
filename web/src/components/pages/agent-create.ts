@@ -381,16 +381,17 @@ export class ScionPageAgentCreate extends LitElement {
     try {
       const [grovesRes, brokersRes, templatesRes, settingsRes, harnessConfigsRes] =
         await Promise.all([
-          fetch('/api/v1/groves', { credentials: 'include' }),
-          fetch('/api/v1/runtime-brokers', { credentials: 'include' }),
-          fetch('/api/v1/templates?status=active', { credentials: 'include' }),
+          fetch('/api/v1/groves?mine=true&limit=200', { credentials: 'include' }),
+          fetch('/api/v1/runtime-brokers?limit=200', { credentials: 'include' }),
+          fetch('/api/v1/templates?status=active&limit=200', { credentials: 'include' }),
           fetch('/api/v1/settings/public', { credentials: 'include' }),
           fetch('/api/v1/harness-configs?status=active&limit=100', { credentials: 'include' }),
         ]);
 
       if (grovesRes.ok) {
         const data = (await grovesRes.json()) as { groves?: Grove[] } | Grove[];
-        this.groves = Array.isArray(data) ? data : data.groves || [];
+        const groves = Array.isArray(data) ? data : data.groves || [];
+        this.groves = groves.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       }
 
       if (brokersRes.ok) {
