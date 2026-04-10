@@ -602,9 +602,11 @@ type Notification struct {
 
 // ListOptions provides pagination and filtering for list operations.
 type ListOptions struct {
-	Limit  int               // Maximum results
-	Cursor string            // Pagination cursor (opaque string)
-	Labels map[string]string // Label selectors
+	Limit   int               // Maximum results
+	Cursor  string            // Pagination cursor (opaque string)
+	Labels  map[string]string // Label selectors
+	SortBy  string            // Sort field (interpretation is store-specific)
+	SortDir string            // Sort direction: "asc" or "desc" (default depends on field)
 }
 
 // ListResult is a generic result container for list operations.

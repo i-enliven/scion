@@ -19,6 +19,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -1499,6 +1500,62 @@ func TestUserList(t *testing.T) {
 	result, err = s.ListUsers(ctx, store.UserFilter{Role: store.UserRoleAdmin}, store.ListOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.TotalCount)
+}
+
+func TestUserListSorting(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Create users with distinct names so sort order is deterministic
+	names := []string{"Charlie", "Alice", "Bob"}
+	for _, name := range names {
+		user := &store.User{
+			ID:          api.NewUUID(),
+			Email:       strings.ToLower(name) + "@example.com",
+			DisplayName: name,
+			Role:        store.UserRoleMember,
+			Status:      "active",
+		}
+		require.NoError(t, s.CreateUser(ctx, user))
+	}
+
+	// Sort by name ascending
+	result, err := s.ListUsers(ctx, store.UserFilter{}, store.ListOptions{SortBy: "name", SortDir: "asc"})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 3)
+	assert.Equal(t, "Alice", result.Items[0].DisplayName)
+	assert.Equal(t, "Bob", result.Items[1].DisplayName)
+	assert.Equal(t, "Charlie", result.Items[2].DisplayName)
+
+	// Sort by name descending
+	result, err = s.ListUsers(ctx, store.UserFilter{}, store.ListOptions{SortBy: "name", SortDir: "desc"})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 3)
+	assert.Equal(t, "Charlie", result.Items[0].DisplayName)
+	assert.Equal(t, "Bob", result.Items[1].DisplayName)
+	assert.Equal(t, "Alice", result.Items[2].DisplayName)
+
+	// Sort by created descending (default) — most recent first
+	result, err = s.ListUsers(ctx, store.UserFilter{}, store.ListOptions{SortBy: "created", SortDir: "desc"})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 3)
+	// Last created should be first
+	assert.Equal(t, "Bob", result.Items[0].DisplayName)
+
+	// Sorting should work across pages: page 1 with limit 2, sorted by name asc
+	result, err = s.ListUsers(ctx, store.UserFilter{}, store.ListOptions{Limit: 2, SortBy: "name", SortDir: "asc"})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 2)
+	assert.Equal(t, "Alice", result.Items[0].DisplayName)
+	assert.Equal(t, "Bob", result.Items[1].DisplayName)
+	assert.NotEmpty(t, result.NextCursor)
+
+	// Page 2 should have the remaining user
+	result, err = s.ListUsers(ctx, store.UserFilter{}, store.ListOptions{Limit: 2, Cursor: result.NextCursor, SortBy: "name", SortDir: "asc"})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, "Charlie", result.Items[0].DisplayName)
+	assert.Empty(t, result.NextCursor)
 }
 
 // ============================================================================

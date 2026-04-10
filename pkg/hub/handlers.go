@@ -5636,8 +5636,10 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := s.store.ListUsers(ctx, filter, store.ListOptions{
-		Limit:  limit,
-		Cursor: query.Get("cursor"),
+		Limit:   limit,
+		Cursor:  query.Get("cursor"),
+		SortBy:  query.Get("sort"),
+		SortDir: query.Get("dir"),
 	})
 	if err != nil {
 		writeErrorFromErr(w, err, "")

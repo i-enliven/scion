@@ -3311,10 +3311,28 @@ func (s *SQLiteStore) ListUsers(ctx context.Context, filter store.UserFilter, op
 		}
 	}
 
+	// Map sort field to column name (whitelist to prevent SQL injection)
+	orderColumn := "created_at"
+	orderDir := "DESC"
+	switch opts.SortBy {
+	case "name":
+		orderColumn = "display_name"
+		orderDir = "ASC" // default ascending for name
+	case "lastSeen":
+		orderColumn = "last_seen"
+	case "created":
+		orderColumn = "created_at"
+	}
+	if opts.SortDir == "asc" {
+		orderDir = "ASC"
+	} else if opts.SortDir == "desc" {
+		orderDir = "DESC"
+	}
+
 	query := fmt.Sprintf(`
 		SELECT id, email, display_name, avatar_url, role, status, preferences, created_at, last_login, last_seen
-		FROM users %s ORDER BY created_at DESC LIMIT ? OFFSET ?
-	`, whereClause)
+		FROM users %s ORDER BY %s %s LIMIT ? OFFSET ?
+	`, whereClause, orderColumn, orderDir)
 	args = append(args, limit+1, offset)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)

@@ -468,7 +468,11 @@ export class ScionPageAdminUsers extends LitElement {
     this.error = null;
 
     try {
-      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        sort: this.sortField,
+        dir: this.sortDir,
+      });
       if (cursor) {
         params.set('cursor', cursor);
       }
@@ -646,30 +650,6 @@ export class ScionPageAdminUsers extends LitElement {
       .slice(0, 2);
   }
 
-  private getSortedUsers(): AdminUser[] {
-    return [...this.users].sort((a, b) => {
-      let cmp = 0;
-      switch (this.sortField) {
-        case 'name':
-          cmp = (a.displayName || a.email).localeCompare(b.displayName || b.email);
-          break;
-        case 'created': {
-          const aTime = a.created ? new Date(a.created).getTime() : 0;
-          const bTime = b.created ? new Date(b.created).getTime() : 0;
-          cmp = aTime - bTime;
-          break;
-        }
-        case 'lastSeen': {
-          const aTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
-          const bTime = b.lastSeen ? new Date(b.lastSeen).getTime() : 0;
-          cmp = aTime - bTime;
-          break;
-        }
-      }
-      return this.sortDir === 'asc' ? cmp : -cmp;
-    });
-  }
-
   private toggleSort(field: SortField): void {
     if (this.sortField === field) {
       this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
@@ -677,6 +657,11 @@ export class ScionPageAdminUsers extends LitElement {
       this.sortField = field;
       this.sortDir = field === 'name' ? 'asc' : 'desc';
     }
+    // Reset pagination and re-fetch with new sort applied server-side
+    this.currentPage = 1;
+    this.cursorHistory = [];
+    this.nextCursor = null;
+    void this.loadUsers();
   }
 
   private sortIndicator(field: SortField): string {
@@ -763,7 +748,6 @@ export class ScionPageAdminUsers extends LitElement {
       `;
     }
 
-    const sorted = this.getSortedUsers();
     const hasPagination = this.totalCount > PAGE_SIZE;
 
     return html`
@@ -798,7 +782,7 @@ export class ScionPageAdminUsers extends LitElement {
             </tr>
           </thead>
           <tbody>
-            ${sorted.map((user) => this.renderUserRow(user))}
+            ${this.users.map((user) => this.renderUserRow(user))}
           </tbody>
         </table>
         ${hasPagination ? this.renderPagination() : ''}
