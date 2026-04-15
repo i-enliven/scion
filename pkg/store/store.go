@@ -244,6 +244,16 @@ type GroveFilter struct {
 	// is in this set OR whose owner_id matches OwnerID. OwnerID and this
 	// field are combined with OR (not AND) when both are set.
 	MemberOrOwnerIDs []string
+
+	// MemberGroveIDs, when non-empty, restricts results to groves whose ID
+	// is in this set. Unlike MemberOrOwnerIDs, this is NOT combined with
+	// OwnerID — it filters strictly by grove ID membership.
+	MemberGroveIDs []string
+
+	// ExcludeOwnerID, when non-empty, excludes groves whose owner_id matches
+	// this value. Used with MemberGroveIDs to return "shared" groves (member
+	// but not owner).
+	ExcludeOwnerID string
 }
 
 // RuntimeBrokerStore defines runtime broker persistence operations.

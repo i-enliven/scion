@@ -2824,12 +2824,32 @@ func (s *Server) listGroves(w http.ResponseWriter, r *http.Request) {
 		Slug:       query.Get("slug"),
 	}
 
-	// mine=true: restrict to groves the current user owns or is a member of
-	if query.Get("mine") == "true" {
+	// scope=mine: groves the current user owns
+	// scope=shared: groves where the user is a member/admin but not the owner
+	// mine=true (legacy): groves the user owns or is a member of
+	switch query.Get("scope") {
+	case "mine":
 		if userIdent := GetUserIdentityFromContext(ctx); userIdent != nil {
 			filter.OwnerID = userIdent.ID()
+		}
+	case "shared":
+		if userIdent := GetUserIdentityFromContext(ctx); userIdent != nil {
 			if groveIDs := s.resolveUserGroveIDs(ctx, userIdent.ID()); len(groveIDs) > 0 {
-				filter.MemberOrOwnerIDs = groveIDs
+				filter.MemberGroveIDs = groveIDs
+				filter.ExcludeOwnerID = userIdent.ID()
+			} else {
+				// User has no group memberships — return empty result
+				filter.MemberGroveIDs = []string{"__none__"}
+			}
+		}
+	default:
+		// Legacy mine=true support
+		if query.Get("mine") == "true" {
+			if userIdent := GetUserIdentityFromContext(ctx); userIdent != nil {
+				filter.OwnerID = userIdent.ID()
+				if groveIDs := s.resolveUserGroveIDs(ctx, userIdent.ID()); len(groveIDs) > 0 {
+					filter.MemberOrOwnerIDs = groveIDs
+				}
 			}
 		}
 	}

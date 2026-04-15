@@ -2092,9 +2092,21 @@ func (s *SQLiteStore) ListGroves(ctx context.Context, filter store.GroveFilter, 
 			args = append(args, filter.OwnerID)
 		}
 		conditions = append(conditions, "("+strings.Join(orParts, " OR ")+")")
+	} else if len(filter.MemberGroveIDs) > 0 {
+		// Strict grove ID membership (no owner OR)
+		placeholders := make([]string, len(filter.MemberGroveIDs))
+		for i, id := range filter.MemberGroveIDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		conditions = append(conditions, "id IN ("+strings.Join(placeholders, ",")+")")
 	} else if filter.OwnerID != "" {
 		conditions = append(conditions, "owner_id = ?")
 		args = append(args, filter.OwnerID)
+	}
+	if filter.ExcludeOwnerID != "" {
+		conditions = append(conditions, "owner_id != ?")
+		args = append(args, filter.ExcludeOwnerID)
 	}
 	if filter.Visibility != "" {
 		conditions = append(conditions, "visibility = ?")

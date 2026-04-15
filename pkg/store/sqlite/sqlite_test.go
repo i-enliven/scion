@@ -1019,6 +1019,70 @@ func TestListGrovesByGitRemoteExactMatch(t *testing.T) {
 	assert.Equal(t, grove2.ID, result.Items[0].ID)
 }
 
+func TestListGrovesSharedScope(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	ownerID := api.NewUUID()
+	otherOwnerID := api.NewUUID()
+
+	ownedGrove := &store.Grove{
+		ID:         api.NewUUID(),
+		Name:       "Owned Grove",
+		Slug:       "owned-grove",
+		OwnerID:    ownerID,
+		Visibility: store.VisibilityPrivate,
+	}
+	sharedGrove := &store.Grove{
+		ID:         api.NewUUID(),
+		Name:       "Shared Grove",
+		Slug:       "shared-grove",
+		OwnerID:    otherOwnerID,
+		Visibility: store.VisibilityPrivate,
+	}
+	unrelatedGrove := &store.Grove{
+		ID:         api.NewUUID(),
+		Name:       "Unrelated Grove",
+		Slug:       "unrelated-grove",
+		OwnerID:    otherOwnerID,
+		Visibility: store.VisibilityPrivate,
+	}
+	require.NoError(t, s.CreateGrove(ctx, ownedGrove))
+	require.NoError(t, s.CreateGrove(ctx, sharedGrove))
+	require.NoError(t, s.CreateGrove(ctx, unrelatedGrove))
+
+	// scope=mine: only groves owned by the user
+	result, err := s.ListGroves(ctx, store.GroveFilter{OwnerID: ownerID}, store.ListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.TotalCount)
+	assert.Equal(t, ownedGrove.ID, result.Items[0].ID)
+
+	// scope=shared: MemberGroveIDs includes both owned and shared grove IDs,
+	// but ExcludeOwnerID removes the owned one
+	result, err = s.ListGroves(ctx, store.GroveFilter{
+		MemberGroveIDs: []string{ownedGrove.ID, sharedGrove.ID},
+		ExcludeOwnerID: ownerID,
+	}, store.ListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.TotalCount)
+	assert.Equal(t, sharedGrove.ID, result.Items[0].ID)
+
+	// MemberGroveIDs without ExcludeOwnerID returns all matched groves
+	result, err = s.ListGroves(ctx, store.GroveFilter{
+		MemberGroveIDs: []string{ownedGrove.ID, sharedGrove.ID},
+	}, store.ListOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 2, result.TotalCount)
+
+	// Empty MemberGroveIDs with ExcludeOwnerID is a no-op on membership filter
+	result, err = s.ListGroves(ctx, store.GroveFilter{
+		ExcludeOwnerID: ownerID,
+	}, store.ListOptions{})
+	require.NoError(t, err)
+	// Returns all groves not owned by ownerID
+	assert.Equal(t, 2, result.TotalCount)
+}
+
 func TestRuntimeBrokerLookupByName(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
