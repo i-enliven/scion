@@ -190,6 +190,18 @@ func buildCommonRunArgs(config RunConfig) ([]string, error) {
 		} else if relWorkspace == "." {
 			// Shared workspace: workspace IS the repo root (e.g., shared git clone).
 			// Mount directly to /workspace so harnesses can trust a single path.
+			//
+			// Sibling agents share this exact mount, so per-agent state must not
+			// live under <workspace>/.scion/agents/ on the broker — that path
+			// would be visible to every container in the grove. Provisioning
+			// relocates prompt.md and scion-agent.json to
+			// ~/.scion/grove-configs/<slug>__<uuid>/.scion/agents/<name>/
+			// (config.GetAgentDir with sharedWorkspace=true), so there is
+			// nothing to leak through this mount. See
+			// .design/hub-shared-workspace-isolation.md (defense by absence).
+			// If the threat model ever requires in-container shadowing, mirror
+			// the /repo-root/.scion tmpfs pattern below at
+			// /workspace/.scion/agents.
 			registerMount(config.Workspace, "/workspace", false, true)
 			addArg("--workdir", "/workspace")
 		} else {

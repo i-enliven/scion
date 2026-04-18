@@ -101,9 +101,11 @@ func (m *AgentManager) Start(ctx context.Context, opts api.StartOptions) (*api.A
 		}
 	}
 
-	// If resuming, verify the agent exists before proceeding
+	// If resuming, verify the agent exists before proceeding. Probe both
+	// worktree and shared-workspace layouts since this runs before the
+	// sharedWorkspace flag is folded into context.
 	if opts.Resume {
-		agentDir := filepath.Join(projectDir, "agents", opts.Name)
+		agentDir := config.ResolveAgentDir(projectDir, opts.Name)
 		if _, err := os.Stat(agentDir); os.IsNotExist(err) {
 			return nil, fmt.Errorf("cannot resume agent '%s': agent does not exist. Use 'scion start' to create a new agent", opts.Name)
 		}

@@ -241,10 +241,16 @@ func (m *AgentManager) deliverImmediate(ctx context.Context, agentID string, mes
 		return fmt.Errorf("agent '%s' not found or not running", agentID)
 	}
 
-	// 2. Resolve harness
+	// 2. Resolve harness — probe both layouts (worktree vs shared-workspace
+	// per .design/hub-shared-workspace-isolation.md) since the mode isn't
+	// passed through this lookup path.
 	harnessName := "generic"
 	if agent.GrovePath != "" {
-		scionJSON := filepath.Join(agent.GrovePath, "agents", agent.Name, "scion-agent.json")
+		projectDir, _ := config.GetResolvedProjectDir(agent.GrovePath)
+		if projectDir == "" {
+			projectDir = agent.GrovePath
+		}
+		scionJSON := filepath.Join(config.ResolveAgentDir(projectDir, agent.Name), "scion-agent.json")
 		if data, err := os.ReadFile(scionJSON); err == nil {
 			var cfg api.ScionConfig
 			if err := json.Unmarshal(data, &cfg); err == nil && cfg.Harness != "" {

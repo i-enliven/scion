@@ -1266,3 +1266,51 @@ func TestWriteFileSecrets_DeduplicatesByTarget(t *testing.T) {
 		t.Errorf("expected grove-cert to win for duplicate target, got: %s", mySecretMount)
 	}
 }
+
+// TestSharedWorkspace_NoAgentStateInMounts asserts the structural invariant
+// from .design/hub-shared-workspace-isolation.md: when an agent is launched
+// in a shared-workspace grove (workspace == repo root), the assembled run
+// args must not bind-mount any host path under <grove>/.scion/agents/ into
+// the container. Per-agent state lives at the external grove-configs path
+// instead, so siblings cannot read it via /workspace.
+func TestSharedWorkspace_NoAgentStateInMounts(t *testing.T) {
+	tmpDir := t.TempDir()
+	groveDir := filepath.Join(tmpDir, "grove")
+	if err := os.MkdirAll(filepath.Join(groveDir, ".scion", "agents", "agent-a"), 0755); err != nil {
+		t.Fatalf("mkdir in-grove agent dir: %v", err)
+	}
+	// External per-agent state for the agent under test (where prompt.md and
+	// scion-agent.json are relocated to in shared-workspace mode).
+	extAgentDir := filepath.Join(tmpDir, "external", "agents", "agent-a")
+	homeDir := filepath.Join(extAgentDir, "home")
+	if err := os.MkdirAll(homeDir, 0755); err != nil {
+		t.Fatalf("mkdir homeDir: %v", err)
+	}
+
+	args, err := buildCommonRunArgs(RunConfig{
+		Harness:      &harness.GeminiCLI{},
+		Name:         "agent-a",
+		UnixUsername: "scion",
+		Image:        "scion-agent:latest",
+		// Shared-workspace shape: workspace == repo root. buildCommonRunArgs
+		// hits the relWorkspace == "." branch and mounts grove → /workspace.
+		RepoRoot:  groveDir,
+		Workspace: groveDir,
+		HomeDir:   homeDir,
+	})
+	if err != nil {
+		t.Fatalf("buildCommonRunArgs failed: %v", err)
+	}
+
+	forbidden := filepath.Join(groveDir, ".scion", "agents")
+	for i, a := range args {
+		if strings.Contains(a, forbidden) {
+			t.Errorf("arg[%d] = %q references forbidden host path %s; per-agent state must live external (.design/hub-shared-workspace-isolation.md)", i, a, forbidden)
+		}
+	}
+	// Sanity: the grove itself should still be mounted at /workspace.
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, fmt.Sprintf("%s:/workspace", groveDir)) {
+		t.Errorf("expected grove %s to be mounted at /workspace, args: %s", groveDir, joined)
+	}
+}

@@ -103,6 +103,7 @@ Scion enforces strict isolation between agents to prevent interference and cross
 - **Environment**: Environment variables are explicitly projected into the container.
 - **Credentials**: Sensitive credentials (like `gcloud` auth) are mounted read-only or injected via environment variables, ensuring they are available only to the specific agent.
 - **Externalized Grove Data**: Non-git grove data and agent home directories are externalized to ensure they cannot be traversed by agents in the workspace.
+- **Shared-Workspace Per-Agent Isolation**: In hub-hosted git groves where multiple agents share a single workspace mount, each agent's per-agent state (its task prompt and resolved configuration) is held outside that shared mount, so sibling agents in the same grove cannot read each other's state through the workspace view.
 
 ### Contextual Agent Instructions
 Scion automatically tailors an agent's operational context by appending supplemental instructions based on the workspace environment.
