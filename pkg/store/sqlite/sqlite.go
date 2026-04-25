@@ -1410,9 +1410,20 @@ func (s *SQLiteStore) ListAgents(ctx context.Context, filter store.AgentFilter, 
 			args = append(args, filter.OwnerID)
 		}
 		conditions = append(conditions, "("+strings.Join(orParts, " OR ")+")")
+	} else if len(filter.MemberGroveIDs) > 0 {
+		placeholders := make([]string, len(filter.MemberGroveIDs))
+		for i, id := range filter.MemberGroveIDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		conditions = append(conditions, "grove_id IN ("+strings.Join(placeholders, ",")+")")
 	} else if filter.OwnerID != "" {
 		conditions = append(conditions, "owner_id = ?")
 		args = append(args, filter.OwnerID)
+	}
+	if filter.ExcludeOwnerID != "" {
+		conditions = append(conditions, "owner_id != ?")
+		args = append(args, filter.ExcludeOwnerID)
 	}
 	if filter.GroveID != "" {
 		conditions = append(conditions, "grove_id = ?")
