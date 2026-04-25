@@ -255,10 +255,13 @@ export class ScionPageAgents extends LitElement {
     // Only trust it when scope was previously null (initial SSR page load);
     // on client-side navigations the maps were just cleared by setScope above.
     // Skip hydrated data when a scope filter is active — SSR data is unfiltered.
+    // Also require scope capabilities — without them the "New Agent" button
+    // won't render, so we must fetch from the API to get them.
     const hydratedAgents = stateManager.getAgents();
-    if (hydratedAgents.length > 0 && this.agentScope === 'all') {
+    const hydratedCaps = stateManager.getScopeCapabilities();
+    if (hydratedAgents.length > 0 && hydratedCaps && this.agentScope === 'all') {
       this.agents = hydratedAgents;
-      this.scopeCapabilities = stateManager.getScopeCapabilities();
+      this.scopeCapabilities = hydratedCaps;
       this.loading = false;
       stateManager.seedAgents(this.agents);
     } else {
@@ -345,6 +348,9 @@ export class ScionPageAgents extends LitElement {
       this.scopeCapabilities = data._capabilities;
     }
     stateManager.seedAgents(this.agents);
+    if (this.scopeCapabilities) {
+      stateManager.seedScopeCapabilities(this.scopeCapabilities);
+    }
   }
 
   private async handleAgentAction(
